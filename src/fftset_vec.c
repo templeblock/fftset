@@ -393,7 +393,7 @@ struct fftset_vec *fastconv_get_inner_pass(struct fftset *fc, unsigned length)
 		pass->dit          = fc_v4_dit_r2;
 		pass->dif_stockham = fc_v4_stock_r2;
 	} else {
-		/* Only support radix-2. */
+		/* Only support radix-2/4. What are you doing crazy-face? */
 		abort();
 	}
 

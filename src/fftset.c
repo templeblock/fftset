@@ -36,19 +36,20 @@
 #endif
 
 struct fftset_fft {
-	unsigned                    lfft;
-	unsigned                    radix;
-	const float                *twiddle;
+	unsigned       lfft;
+	unsigned       radix;
+
+	const float   *main_twiddle;
+	const float   *reord_twiddle;
+
+	void         (*forward)      (float *out, const float *in, const float *twid, unsigned lfft_div_radix);
+	void         (*forward_reord)(float *out, const float *in, const float *twid, unsigned lfft_div_radix);
+	void         (*reverse_reord)(float *out, const float *in, const float *twid, unsigned lfft_div_radix);
+	void         (*reverse)      (float *out, const float *in, const float *twid, unsigned lfft_div_radix);
 
 	/* The best next pass to use (this pass will have:
 	 *      next->lfft = this->lfft / this->radix */
 	const struct fftset_vec *next_compat;
-
-	/* If these are both null, this is the upload pass. Otherwise, these are
-	 * both non-null. */
-	void (*dit)(float *work_buf, unsigned nfft, unsigned lfft, const float *twid);
-	void (*dif)(float *work_buf, unsigned nfft, unsigned lfft, const float *twid);
-	void (*dif_stockham)(const float *in, float *out, const float *twid, unsigned ncol, unsigned nrow_div_radix);
 
 	/* Position in list of all passes of this type (outer or inner pass). */
 	struct fftset_fft       *next;
@@ -66,12 +67,12 @@ fftset_fft_conv_get_kernel
 {
 	const struct fftset_vec *vec_pass;
 	unsigned nfft = 1;
-	assert(first_pass->dif == NULL && first_pass->dit == NULL);
-	FFTSET_MODULATION_FREQ_OFFSET_REAL->forward(output_buf, input_buf, first_pass->twiddle, first_pass->lfft);
+
+	first_pass->forward(output_buf, input_buf, first_pass->main_twiddle, first_pass->lfft);
+
 	for (vec_pass = first_pass->next_compat; vec_pass != NULL; vec_pass = vec_pass->next_compat) {
 		vec_pass->dif(output_buf, nfft, vec_pass->lfft, vec_pass->twiddle);
 		nfft *= vec_pass->radix;
-		vec_pass = vec_pass->next_compat;
 	}
 }
 
@@ -89,8 +90,8 @@ fftset_fft_conv
 	unsigned si = 0;
 	unsigned nfft = 1;
 	unsigned i;
-	assert(first_pass->dif == NULL && first_pass->dit == NULL);
-	FFTSET_MODULATION_FREQ_OFFSET_REAL->forward(work_buf, input_buf, first_pass->twiddle, first_pass->lfft);
+
+	first_pass->forward(work_buf, input_buf, first_pass->main_twiddle, first_pass->lfft);
 
 	for (vec_pass = first_pass->next_compat; vec_pass != NULL; vec_pass = vec_pass->next_compat) {
 		assert(si < FASTCONV_MAX_PASSES);
@@ -121,7 +122,7 @@ fftset_fft_conv
 	}
 
 	assert(nfft == 1);
-	FFTSET_MODULATION_FREQ_OFFSET_REAL->reverse(output_buf, work_buf, first_pass->twiddle, first_pass->lfft);
+	first_pass->reverse(output_buf, work_buf, first_pass->main_twiddle, first_pass->lfft);
 }
 
 void
@@ -134,9 +135,8 @@ fftset_fft_forward
 {
 	const struct fftset_vec *vec_pass;
 	unsigned nfft = 1;
-	assert(first_pass->dif == NULL && first_pass->dit == NULL);
-	
-	FFTSET_MODULATION_FREQ_OFFSET_REAL->forward(work_buf, input_buf, first_pass->twiddle, first_pass->lfft);
+
+	first_pass->forward(work_buf, input_buf, first_pass->main_twiddle, first_pass->lfft);
 	
 	for (vec_pass = first_pass->next_compat; vec_pass != NULL; vec_pass = vec_pass->next_compat) {
 		float *tmp;
@@ -149,7 +149,7 @@ fftset_fft_forward
 		work_buf   = tmp;
 	}
 
-	FFTSET_MODULATION_FREQ_OFFSET_REAL->forward_reord(output_buf, work_buf, NULL, first_pass->lfft);
+	first_pass->forward_reord(output_buf, work_buf, first_pass->reord_twiddle, first_pass->lfft);
 
 	/* We have no idea which buffer is which because of the reindexing. Copy
 	 * the output buffer into the work buffer. */
@@ -166,9 +166,8 @@ fftset_fft_inverse
 {
 	const struct fftset_vec *vec_pass;
 	unsigned nfft = 1;
-	assert(first_pass->dif == NULL && first_pass->dit == NULL);
 
-	FFTSET_MODULATION_FREQ_OFFSET_REAL->reverse_reord(work_buf, input_buf, NULL, first_pass->lfft);
+	first_pass->reverse_reord(work_buf, input_buf, first_pass->reord_twiddle, first_pass->lfft);
 
 	for (vec_pass = first_pass->next_compat; vec_pass != NULL; vec_pass = vec_pass->next_compat) {
 		float *tmp;
@@ -181,7 +180,7 @@ fftset_fft_inverse
 		work_buf   = tmp;
 	}
 
-	FFTSET_MODULATION_FREQ_OFFSET_REAL->reverse(output_buf, work_buf, first_pass->twiddle, first_pass->lfft);
+	first_pass->reverse(output_buf, work_buf, first_pass->main_twiddle, first_pass->lfft);
 
 	/* We have no idea which buffer is which because of the reindexing. Copy
 	 * the output buffer into the work buffer. */
@@ -202,7 +201,59 @@ void fftset_destroy(struct fftset *fc)
 
 const struct fftset_fft *fftset_build_fft(struct fftset *fc, const struct fftset_modulation *modulation, unsigned complex_bins)
 {
+	struct fftset_fft *pass;
+	struct fftset_fft **ipos;
 
+	/* Find the pass. */
+	for (pass = fc->first_outer; pass != NULL; pass = pass->next) {
+		if (pass->lfft == complex_bins)
+			return pass;
+		if (pass->lfft < complex_bins)
+			break;
+	}
+
+	/* Create new outer pass and insert it into the list. */
+	pass = aalloc_alloc(&fc->memory, sizeof(*pass));
+	if (pass == NULL)
+		return NULL;
+
+	/* Create memory for twiddle coefficients. */
+	if (modulation->get_twid != NULL) {
+		pass->main_twiddle = modulation->get_twid(&fc->memory, complex_bins);
+		if (pass->main_twiddle == NULL)
+			return NULL;
+	} else {
+		pass->main_twiddle = NULL;
+	}
+
+	if (modulation->get_twid_reord != NULL) {
+		pass->reord_twiddle = modulation->get_twid_reord(&fc->memory, complex_bins);
+		if (pass->reord_twiddle == NULL)
+			return NULL;
+	} else {
+		pass->reord_twiddle = NULL;
+	}
+
+	/* Create inner passes recursively. */
+	pass->next_compat = fastconv_get_inner_pass(fc, complex_bins / 4);
+	if (pass->next_compat == NULL)
+		return NULL;
+
+	pass->lfft          = complex_bins;
+	pass->radix         = 4;
+	pass->forward       = modulation->forward;
+	pass->reverse       = modulation->reverse;
+	pass->forward_reord = modulation->forward_reord;
+	pass->reverse_reord = modulation->reverse_reord;
+
+	/* Insert into list. */
+	ipos = &(fc->first_outer);
+	while (*ipos != NULL && complex_bins < (*ipos)->lfft) {
+		ipos = &(*ipos)->next;
+	}
+	pass->next = *ipos;
+	*ipos = pass;
+	return pass;
 }
 
 
@@ -215,51 +266,8 @@ const struct fftset_fft *fftset_build_fft(struct fftset *fc, const struct fftset
  * undefined. */
 const struct fftset_fft *fftset_create_fft(struct fftset *fc, unsigned real_length)
 {
-	unsigned length;
-	struct fftset_fft *pass;
-	struct fftset_fft **ipos;
-
 	assert(real_length % 32 == 0 && "the real length must be even and divisible by 32");
-
-	length = real_length / 2;
-
-	/* Find the pass. */
-	for (pass = fc->first_outer; pass != NULL; pass = pass->next) {
-		if (pass->lfft == length && pass->dif == NULL)
-			return pass;
-		if (pass->lfft < length)
-			break;
-	}
-
-	/* Create new outer pass and insert it into the list. */
-	pass = aalloc_alloc(&fc->memory, sizeof(*pass));
-	if (pass == NULL)
-		return NULL;
-
-	/* Create memory for twiddle coefficients. */
-	pass->twiddle = FFTSET_MODULATION_FREQ_OFFSET_REAL->get_twid(&fc->memory, length);
-	if (pass->twiddle == NULL)
-		return NULL;
-
-	/* Create inner passes recursively. */
-	pass->next_compat = fastconv_get_inner_pass(fc, length / 4);
-	if (pass->next_compat == NULL)
-		return NULL;
-
-	pass->lfft         = length;
-	pass->radix        = 4;
-	pass->dif          = NULL;
-	pass->dit          = NULL;
-	pass->dif_stockham = NULL;
-
-	/* Insert into list. */
-	ipos = &(fc->first_outer);
-	while (*ipos != NULL && length < (*ipos)->lfft) {
-		ipos = &(*ipos)->next;
-	}
-	pass->next = *ipos;
-	*ipos = pass;
-	return pass;
+	return fftset_build_fft(fc, FFTSET_MODULATION_FREQ_OFFSET_REAL, real_length / 2);
 }
 
 static unsigned rounduptonearestfactorisation(unsigned min)
