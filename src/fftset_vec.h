@@ -24,7 +24,7 @@
 #include "fftset/fftset.h"
 
 struct fftset_vec {
-	unsigned                    lfft;
+	unsigned                    lfft_div_radix;
 	unsigned                    radix;
 	const float                *twiddle;
 

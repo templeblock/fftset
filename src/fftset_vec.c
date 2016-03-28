@@ -29,8 +29,7 @@
 
 static void fc_v4_dif_r2(float *work_buf, unsigned nfft, unsigned lfft, const float *twid)
 {
-	unsigned rinc = lfft * 4;
-	lfft /= 2;
+	unsigned rinc = lfft * 8;
 	do {
 		unsigned j;
 		for (j = 0; j < lfft; j++, work_buf += 8) {
@@ -61,8 +60,7 @@ static void fc_v4_dif_r2(float *work_buf, unsigned nfft, unsigned lfft, const fl
 
 static void fc_v4_dif_r4(float *work_buf, unsigned nfft, unsigned lfft, const float *twid)
 {
-	unsigned rinc = lfft * 2;
-	lfft /= 4;
+	unsigned rinc = lfft * 8;
 	do {
 		unsigned j;
 		const float *tp = twid;
@@ -130,8 +128,7 @@ static void fc_v4_dif_r4(float *work_buf, unsigned nfft, unsigned lfft, const fl
 
 static void fc_v4_dit_r2(float *work_buf, unsigned nfft, unsigned lfft, const float *twid)
 {
-	unsigned rinc = lfft * 4;
-	lfft /= 2;
+	unsigned rinc = lfft * 8;
 	do {
 		unsigned j;
 		for (j = 0; j < lfft; j++, work_buf += 8) {
@@ -162,8 +159,7 @@ static void fc_v4_dit_r2(float *work_buf, unsigned nfft, unsigned lfft, const fl
 
 static void fc_v4_dit_r4(float *work_buf, unsigned nfft, unsigned lfft, const float *twid)
 {
-	unsigned rinc = lfft * 2;
-	lfft /= 4;
+	unsigned rinc = lfft * 8;
 	do {
 		unsigned j;
 		const float *tp = twid;
@@ -348,9 +344,9 @@ struct fftset_vec *fastconv_get_inner_pass(struct fftset *fc, unsigned length)
 
 	/* Search for the pass. */
 	for (pass = fc->first_inner; pass != NULL; pass = pass->next) {
-		if (pass->lfft == length && pass->dif != NULL)
+		if (pass->lfft_div_radix*pass->radix == length && pass->dif != NULL)
 			return pass;
-		if (pass->lfft < length)
+		if (pass->lfft_div_radix*pass->radix < length)
 			break;
 	}
 
@@ -373,7 +369,7 @@ struct fftset_vec *fastconv_get_inner_pass(struct fftset *fc, unsigned length)
 			twid[6*i+5] = sinf(i * (-(float)M_PI * 6.0f) / length);
 		}
 		pass->twiddle      = twid;
-		pass->lfft         = length;
+		pass->lfft_div_radix = length / 4;
 		pass->radix        = 4;
 		pass->dif          = fc_v4_dif_r4;
 		pass->dit          = fc_v4_dit_r4;
@@ -387,7 +383,7 @@ struct fftset_vec *fastconv_get_inner_pass(struct fftset *fc, unsigned length)
 			twid[2*i+1] = sinf(i * (-(float)M_PI * 2.0f) / length);
 		}
 		pass->twiddle      = twid;
-		pass->lfft         = length;
+		pass->lfft_div_radix = length / 2;
 		pass->radix        = 2;
 		pass->dif          = fc_v4_dif_r2;
 		pass->dit          = fc_v4_dit_r2;
@@ -398,9 +394,8 @@ struct fftset_vec *fastconv_get_inner_pass(struct fftset *fc, unsigned length)
 	}
 
 	/* Make next pass if required */
-	if (pass->lfft != pass->radix) {
-		assert(pass->lfft % pass->radix == 0);
-		pass->next_compat = fastconv_get_inner_pass(fc, pass->lfft / pass->radix);
+	if (pass->lfft_div_radix != 1) {
+		pass->next_compat = fastconv_get_inner_pass(fc, pass->lfft_div_radix);
 		if (pass->next_compat == NULL)
 			return NULL;
 	} else {
@@ -409,7 +404,7 @@ struct fftset_vec *fastconv_get_inner_pass(struct fftset *fc, unsigned length)
 
 	/* Insert into list. */
 	ipos = &(fc->first_inner);
-	while (*ipos != NULL && length < (*ipos)->lfft) {
+	while (*ipos != NULL && length < (*ipos)->lfft_div_radix * (*ipos)->radix) {
 		ipos = &(*ipos)->next;
 	}
 	pass->next = *ipos;

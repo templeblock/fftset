@@ -71,7 +71,7 @@ fftset_fft_conv_get_kernel
 	first_pass->forward(output_buf, input_buf, first_pass->main_twiddle, first_pass->lfft);
 
 	for (vec_pass = first_pass->next_compat; vec_pass != NULL; vec_pass = vec_pass->next_compat) {
-		vec_pass->dif(output_buf, nfft, vec_pass->lfft, vec_pass->twiddle);
+		vec_pass->dif(output_buf, nfft, vec_pass->lfft_div_radix, vec_pass->twiddle);
 		nfft *= vec_pass->radix;
 	}
 }
@@ -96,7 +96,7 @@ fftset_fft_conv
 	for (vec_pass = first_pass->next_compat; vec_pass != NULL; vec_pass = vec_pass->next_compat) {
 		assert(si < FASTCONV_MAX_PASSES);
 		pass_stack[si++] = vec_pass;
-		vec_pass->dif(work_buf, nfft, vec_pass->lfft, vec_pass->twiddle);
+		vec_pass->dif(work_buf, nfft, vec_pass->lfft_div_radix, vec_pass->twiddle);
 		nfft *= vec_pass->radix;
 	}
 
@@ -118,7 +118,7 @@ fftset_fft_conv
 	while (si--) {
 		vec_pass = pass_stack[si];
 		nfft /= vec_pass->radix;
-		vec_pass->dit(work_buf, nfft, vec_pass->lfft, vec_pass->twiddle);
+		vec_pass->dit(work_buf, nfft, vec_pass->lfft_div_radix, vec_pass->twiddle);
 	}
 
 	assert(nfft == 1);
@@ -141,7 +141,7 @@ fftset_fft_forward
 	for (vec_pass = first_pass->next_compat; vec_pass != NULL; vec_pass = vec_pass->next_compat) {
 		float *tmp;
 
-		vec_pass->dif_stockham(work_buf, output_buf, vec_pass->twiddle, vec_pass->lfft/vec_pass->radix, nfft);
+		vec_pass->dif_stockham(work_buf, output_buf, vec_pass->twiddle, vec_pass->lfft_div_radix, nfft);
 		nfft      *= vec_pass->radix;
 
 		tmp        = output_buf;
@@ -172,7 +172,7 @@ fftset_fft_inverse
 	for (vec_pass = first_pass->next_compat; vec_pass != NULL; vec_pass = vec_pass->next_compat) {
 		float *tmp;
 
-		vec_pass->dif_stockham(work_buf, output_buf, vec_pass->twiddle, vec_pass->lfft/vec_pass->radix, nfft);
+		vec_pass->dif_stockham(work_buf, output_buf, vec_pass->twiddle, vec_pass->lfft_div_radix, nfft);
 		nfft      *= vec_pass->radix;
 
 		tmp        = output_buf;
@@ -235,12 +235,12 @@ const struct fftset_fft *fftset_build_fft(struct fftset *fc, const struct fftset
 	}
 
 	/* Create inner passes recursively. */
-	pass->next_compat = fastconv_get_inner_pass(fc, complex_bins / 4);
+	pass->next_compat = fastconv_get_inner_pass(fc, complex_bins / modulation->radix);
 	if (pass->next_compat == NULL)
 		return NULL;
 
 	pass->lfft          = complex_bins;
-	pass->radix         = 4;
+	pass->radix         = modulation->radix;
 	pass->forward       = modulation->forward;
 	pass->reverse       = modulation->reverse;
 	pass->forward_reord = modulation->forward_reord;
