@@ -23,14 +23,14 @@
 
 #include "fftset/fftset.h"
 
-struct fftset_fft {
+struct fftset_vec {
 	unsigned                    lfft;
 	unsigned                    radix;
 	const float                *twiddle;
 
 	/* The best next pass to use (this pass will have:
 	 *      next->lfft = this->lfft / this->radix */
-	const struct fftset_fft *next_compat;
+	const struct fftset_vec *next_compat;
 
 	/* If these are both null, this is the upload pass. Otherwise, these are
 	 * both non-null. */
@@ -39,9 +39,9 @@ struct fftset_fft {
 	void (*dif_stockham)(const float *in, float *out, const float *twid, unsigned ncol, unsigned nrow_div_radix);
 
 	/* Position in list of all passes of this type (outer or inner pass). */
-	struct fftset_fft       *next;
+	struct fftset_vec       *next;
 };
 
-struct fftset_fft *fastconv_get_inner_pass(struct fftset *fc, unsigned length);
+struct fftset_vec *fastconv_get_inner_pass(struct fftset *fc, unsigned length);
 
 #endif /* FFTSET_VEC_H */

@@ -45,7 +45,10 @@
 /* Holds the memory for a variety of different DFTs. */
 struct fftset;
 
-/* Descrives the execution of a particular DFT. */
+/* Describes a particular modulation. */
+struct fftset_modulation;
+
+/* Describes how a particular modulation should be executed. */
 struct fftset_fft;
 
 /* Creates an fftset which will be used by convolution kernels. This provides
@@ -63,6 +66,8 @@ void fftset_destroy(struct fftset *fc);
 /* Get a convolution pass that takes real input with the specified length.
  * The result is useable until fftset_destroy() is called. */
 const struct fftset_fft *fftset_create_fft(struct fftset *fc, unsigned real_length);
+
+const struct fftset_fft *fftset_build_fft(struct fftset *fc, const struct fftset_modulation *modulation, unsigned complex_bins);
 
 void
 fftset_fft_forward
@@ -96,15 +101,21 @@ fftset_fft_conv
 	,float                      *work_buf
 	);
 
-/* Only defined so you can shove it on the stack. Don't access directly. */
-struct fftset {
-	/* Sorted list of all available inner vector passes. */
-	struct fftset_fft    *first_inner;
-	/* Sorted list of all available outer passes. */
-	struct fftset_fft    *first_outer;
-	/* Memory for everything! */
-	struct aalloc         memory;
-};
+/* Available modulations
+ * --------------------- */
+
+/* FFTSET_MODULATION_FREQ_OFFSET_REAL describes a forward modulation:
+ *
+ *   X[k] = \sum\limits_{n=0}^{N-1} x[n] e^{ \frac{-j 2 \pi n (k + 0.5)}{N} }
+ *
+ * Where x[n] is a real sequence.
+ *
+ * This is a great modulation. I like this modulation. For N real inputs, it
+ * gives N/2 complex outputs (as opposed to the normal real DFT modulation
+ * which gives N/2-1 complex and 2 real outputs). It is a modulation which
+ * still supports convolution. Obviously, there is no DC which makes it
+ * unsuitable for some uses. */
+extern const struct fftset_modulation *FFTSET_MODULATION_FREQ_OFFSET_REAL;
 
 /* Given a particular kernel length and a maximum usage block size, give a
  * reasonably optimal length to use for the convolution FFT. The result is
@@ -114,5 +125,19 @@ struct fftset {
  * The actual maximum block size which can be used can be found by the result
  * of this function plus one minus the kernel length. */
 unsigned fftset_recommend_conv_length(unsigned kernel_length, unsigned max_block_size);
+
+/* ------------------------------------------------------------------------
+ * Only defined so you can shove it on the stack. Don't access directly.
+ * ------------------------------------------------------------------------ */
+struct fftset_vec;
+
+struct fftset {
+	/* Sorted list of all available inner vector passes. */
+	struct fftset_vec    *first_inner;
+	/* Sorted list of all available outer passes. */
+	struct fftset_fft    *first_outer;
+	/* Memory for everything! */
+	struct aalloc         memory;
+};
 
 #endif /* FFTSET_H */

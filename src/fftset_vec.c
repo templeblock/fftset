@@ -340,10 +340,10 @@ static void fc_v4_stock_r4(const float *in, float *out, const float *twid, unsig
 	} while (--nrow_div_radix);
 }
 
-struct fftset_fft *fastconv_get_inner_pass(struct fftset *fc, unsigned length)
+struct fftset_vec *fastconv_get_inner_pass(struct fftset *fc, unsigned length)
 {
-	struct fftset_fft *pass;
-	struct fftset_fft **ipos;
+	struct fftset_vec *pass;
+	struct fftset_vec **ipos;
 	unsigned i;
 
 	/* Search for the pass. */
