@@ -199,7 +199,7 @@ void fftset_destroy(struct fftset *fc)
 	aalloc_free(&fc->memory);
 }
 
-const struct fftset_fft *fftset_build_fft(struct fftset *fc, const struct fftset_modulation *modulation, unsigned complex_bins)
+const struct fftset_fft *fftset_create_fft(struct fftset *fc, const struct fftset_modulation *modulation, unsigned complex_bins)
 {
 	struct fftset_fft *pass;
 	struct fftset_fft **ipos;
@@ -256,20 +256,6 @@ const struct fftset_fft *fftset_build_fft(struct fftset *fc, const struct fftset
 	return pass;
 }
 
-
-/* fastconv_get_outer_real_pass()
- *
- * Searches the given fftset for a real input DFT of the specified length. If
- * the pass is found, it will be returned. If the pass is not found, it will
- * be created, stored in the fftset for later use and returned. The function
- * can only fail if memory is exhausted. Unsupported values of length are
- * undefined. */
-const struct fftset_fft *fftset_create_fft(struct fftset *fc, unsigned real_length)
-{
-	assert(real_length % 32 == 0 && "the real length must be even and divisible by 32");
-	return fftset_build_fft(fc, FFTSET_MODULATION_FREQ_OFFSET_REAL, real_length / 2);
-}
-
 static unsigned rounduptonearestfactorisation(unsigned min)
 {
 	unsigned length = 2;
@@ -300,6 +286,6 @@ unsigned fftset_recommend_conv_length(unsigned kernel_length, unsigned max_block
 	/* We do our processing on vectors if we can. The optimal way of doing
 	 * this (which avoids any scalar loads/stores on input/output vectors)
 	 * requires particular length multiples. */
-	return FASTCONV_REAL_LEN_MULTIPLE * rounduptonearestfactorisation((min_real_dft_length + FASTCONV_REAL_LEN_MULTIPLE - 1) / FASTCONV_REAL_LEN_MULTIPLE);
+	return FASTCONV_REAL_LEN_MULTIPLE * rounduptonearestfactorisation((min_real_dft_length + FASTCONV_REAL_LEN_MULTIPLE - 1) / FASTCONV_REAL_LEN_MULTIPLE) / 2;
 }
 

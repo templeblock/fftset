@@ -63,11 +63,7 @@ void fftset_init(struct fftset *fc);
  * function is called. */
 void fftset_destroy(struct fftset *fc);
 
-/* Get a convolution pass that takes real input with the specified length.
- * The result is useable until fftset_destroy() is called. */
-const struct fftset_fft *fftset_create_fft(struct fftset *fc, unsigned real_length);
-
-const struct fftset_fft *fftset_build_fft(struct fftset *fc, const struct fftset_modulation *modulation, unsigned complex_bins);
+const struct fftset_fft *fftset_create_fft(struct fftset *fc, const struct fftset_modulation *modulation, unsigned complex_bins);
 
 void
 fftset_fft_forward

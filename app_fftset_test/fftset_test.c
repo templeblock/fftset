@@ -26,7 +26,7 @@ static const unsigned primes[] = {0, 2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37,
 
 int prime_impulse_test(struct fftset *fftset, unsigned length, float *buf1, float *buf2, float *buf3)
 {
-	const struct fftset_fft *fft = fftset_create_fft(fftset, length);
+	const struct fftset_fft *fft = fftset_create_fft(fftset, FFTSET_MODULATION_FREQ_OFFSET_REAL, length / 2);
 	unsigned pidx;
 	unsigned i, j;
 	float acc;
