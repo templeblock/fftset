@@ -23,25 +23,6 @@
 
 #include "cop/cop_alloc.h"
 
-/* How to use this API:
- *
- *   1) Initialize an fftset object. This will hold all the memory for the
- *      different DFT coefficients.
- *   2) Create an fft pass object. This will describe a particular DFT (or
- *      variety on a DFT) matrix depending on the constructor used. Currently
- *      there is only one constructor:
- *        - fftset_get_real_conv() which creates a real input, complex
- *          output modulation. The frequency vector is shifted by 0.5.
- *          Convolution still works on the output.
- *   3) Depending on whether you are using this DFT for convolution or ordered
- *      analysis:
- *        - Convolution: use fftset_execute_fwd() to create the frequency
- *          domain filter kernel. Then use calls to fftset_execute_conv() to
- *          perform convolution operations.
- *        - Analysis (output bins required to be in a particular order): use
- *          fftset_execute_fwd_reord() and fftset_execute_rev_reord() to
- *          perform the forward/inverse modulations respectively. */
-
 /* Types
  * ------------------------------------------------------------------------ */
 
@@ -165,9 +146,9 @@ fftset_fft_conv
  * of this function plus one minus the kernel length. */
 unsigned fftset_recommend_conv_length(unsigned kernel_length, unsigned max_block_size);
 
-/* Private Stuff
+/* Private Parts
  * ---------------------------------------------------------------------------
- * You can't touch this. */
+ * Don't touch them. */
 
 struct fftset_vec;
 

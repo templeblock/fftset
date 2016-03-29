@@ -10,10 +10,10 @@ endif()
 
 project(app_fftset_test)
 
-if (NOT WIN32)
+if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   set(CMAKE_C_FLAGS_DEBUG "-Wall -O0 -g -fsanitize=address")
   set(CMAKE_C_FLAGS_RELEASE "-Wall -DNDEBUG=1 -O3 -g")
-endif (NOT WIN32)
+endif()
 
 add_executable(fftset_test fftset_test.c)
 target_link_libraries(fftset_test fftset)
