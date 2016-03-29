@@ -44,7 +44,14 @@ struct fftset_fft {
 
 	void         (*forward)      (float *out, const float *in, const float *twid, unsigned lfft_div_radix);
 	void         (*forward_reord)(float *out, const float *in, const float *twid, unsigned lfft_div_radix);
+
+	/* Conjugate the input data (as all of the vector passes are forward-DFTs)
+	 * and reorder it ready for vector passes. */
 	void         (*reverse_reord)(float *out, const float *in, const float *twid, unsigned lfft_div_radix);
+
+	/* Perform the final twiddles (if necessary), conjugate the output (again,
+	 * because all inner passes are forward) and reorder in the expected
+	 * way. */
 	void         (*reverse)      (float *out, const float *in, const float *twid, unsigned lfft_div_radix);
 
 	/* The best next pass to use (this pass will have:

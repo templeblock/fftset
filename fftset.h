@@ -42,29 +42,85 @@
  *          fftset_execute_fwd_reord() and fftset_execute_rev_reord() to
  *          perform the forward/inverse modulations respectively. */
 
-/* Holds the memory for a variety of different DFTs. */
+/* Types
+ * ------------------------------------------------------------------------ */
+
+/* Holds the memory for a variety of different DFTs. This is meant to be
+ * opaque, but is defined below so it can be placed on the stack. */
 struct fftset;
 
-/* Describes a particular modulation. */
+/* Describes a particular modulation. See the section on "Modulator
+ * Construction". This is an opaque type. */
 struct fftset_modulation;
 
-/* Describes how a particular modulation should be executed. */
+/* The thing that desribes the steps which must be performed to evaluate the
+ * modulation. This is an opaque type. */
 struct fftset_fft;
 
-/* Creates an fftset which will be used by convolution kernels. This provides
- * a way to reuse twiddles and memory so that each time a kernel is
- * constructed, there is only a minimal amount of work that needs to be done.
- */
+/* Initialization and Cleanup
+ * ------------------------------------------------------------------------ */
+
+/* Initializes an fftset object which will hold all the memory required by the
+ * various modulators. */
 void fftset_init(struct fftset *fc);
 
-/* Destroys an fftset. Once this function has been called, all kernel objects
- * which were created using the given fftset must not be executed. The kernel
- * objects may be destroyed via fftset_kernel_real_destroy() after this
- * function is called. */
+/* Destroys an fftset. Once this function has been called, all fftset_fft
+ * objects which were created using the given fftset are invalid and it is
+ * undefined to attempt to use them. */
 void fftset_destroy(struct fftset *fc);
+
+/* Modulator Construction
+ * ------------------------------------------------------------------------
+ * This library defines (at the moment) 1 modulator that can be used. But the
+ * intent is that several modulations may be supplied which each perform
+ * different tasks. An instance of a modulator which may be used can be
+ * created using fftset_create_fft() passing in a pointer to the desired
+ * modulator definition. */
+
+/* FFTSET_MODULATION_FREQ_OFFSET_REAL describes a forward modulation:
+ *
+ *   X[k] = \sum\limits_{n=0}^{N-1} x[n] e^{ \frac{-j 2 \pi n (k + 0.5)}{N} }
+ *
+ * Where x[n] is a real sequence.
+ *
+ * This is a great modulation. I like this modulation. For N real inputs, it
+ * gives N/2 complex outputs (as opposed to the normal real DFT modulation
+ * which gives N/2-1 complex and 2 real outputs). It is a modulation which
+ * still supports convolution. Obviously, there is no DC which makes it
+ * unsuitable for some uses. */
+extern const struct fftset_modulation *FFTSET_MODULATION_FREQ_OFFSET_REAL;
 
 const struct fftset_fft *fftset_create_fft(struct fftset *fc, const struct fftset_modulation *modulation, unsigned complex_bins);
 
+/* Modulator Execution
+ * ------------------------------------------------------------------------
+ * There are four different methods for executing a particular modulation. Two
+ * are useful for analysis: fftset_fft_forward(), fftset_fft_inverse() and two
+ * are useful for convolution fftset_fft_conv_get_kernel() and
+ * fftset_fft_conv().
+ *
+ * The analysis modulations do exactly what their name implies: the forward
+ * modulation executes the mathematical definition of the modulator while the
+ * inverse variant executes the inverse. The ordering of the forward output
+ * bins (as is the ordering of the inverse input bins) is determined by the
+ * modulation (see the above section) - read carefully. Each of these two
+ * functions take three buffers which must all be aligned properly for vector
+ * access by the system (aligning to VEC_ALIGN_BEST will guarantee this). The
+ * input and output buffers may alias each other, but the supplied work_buf
+ * argument must not alias input or output. After the call, the contents of
+ * work_buf is undefined.
+ *
+ * The convolution heplers are different in that they are designed to perform
+ * a convolution. The modulator MUST support convolution otherwise these
+ * functions are undefined. As with the analysis modulators, all buffer
+ * arguments must contain the same amount of storage.
+ *   - fftset_fft_conv_get_kernel() takes input data in the form required by
+ *     the forward modulation and produces an output buffer which is required
+ *     by the convolution function. input_buf and output_buf must not alias.
+ *   - fftset_fft_conv() executes a convolution. input_buf and output_buf may
+ *     alias with each other. kernel_buf must be output produced by
+ *     fftset_fft_conv_get_kernel() and must not alias any other buffer
+ *     arguments. work_buf must not alias any other buffer arguments. */
 void
 fftset_fft_forward
 	(const struct fftset_fft    *first_pass
@@ -97,21 +153,8 @@ fftset_fft_conv
 	,float                      *work_buf
 	);
 
-/* Available modulations
- * --------------------- */
-
-/* FFTSET_MODULATION_FREQ_OFFSET_REAL describes a forward modulation:
- *
- *   X[k] = \sum\limits_{n=0}^{N-1} x[n] e^{ \frac{-j 2 \pi n (k + 0.5)}{N} }
- *
- * Where x[n] is a real sequence.
- *
- * This is a great modulation. I like this modulation. For N real inputs, it
- * gives N/2 complex outputs (as opposed to the normal real DFT modulation
- * which gives N/2-1 complex and 2 real outputs). It is a modulation which
- * still supports convolution. Obviously, there is no DC which makes it
- * unsuitable for some uses. */
-extern const struct fftset_modulation *FFTSET_MODULATION_FREQ_OFFSET_REAL;
+/* Helpful Routines
+ * ------------------------------------------------------------------------ */
 
 /* Given a particular kernel length and a maximum usage block size, give a
  * reasonably optimal length to use for the convolution FFT. The result is
@@ -122,9 +165,10 @@ extern const struct fftset_modulation *FFTSET_MODULATION_FREQ_OFFSET_REAL;
  * of this function plus one minus the kernel length. */
 unsigned fftset_recommend_conv_length(unsigned kernel_length, unsigned max_block_size);
 
-/* ------------------------------------------------------------------------
- * Only defined so you can shove it on the stack. Don't access directly.
- * ------------------------------------------------------------------------ */
+/* Private Stuff
+ * ---------------------------------------------------------------------------
+ * You can't touch this. */
+
 struct fftset_vec;
 
 struct fftset {
