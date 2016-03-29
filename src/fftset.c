@@ -68,8 +68,8 @@ struct fftset_fft {
 void
 fftset_fft_conv_get_kernel
 	(const struct fftset_fft    *first_pass
-	,const float                *input_buf
 	,float                      *output_buf
+	,const float                *input_buf
 	)
 {
 	const struct fftset_vec *vec_pass;
@@ -86,9 +86,9 @@ fftset_fft_conv_get_kernel
 void
 fftset_fft_conv
 	(const struct fftset_fft *first_pass
+	,float                      *output_buf
 	,const float                *input_buf
 	,const float                *kernel_buf
-	,float                      *output_buf
 	,float                      *work_buf
 	)
 {
@@ -135,8 +135,8 @@ fftset_fft_conv
 void
 fftset_fft_forward
 	(const struct fftset_fft *first_pass
-	,const float                *input_buf
 	,float                      *output_buf
+	,const float                *input_buf
 	,float                      *work_buf
 	)
 {
@@ -166,8 +166,8 @@ fftset_fft_forward
 void
 fftset_fft_inverse
 	(const struct fftset_fft    *first_pass
-	,const float                *input_buf
 	,float                      *output_buf
+	,const float                *input_buf
 	,float                      *work_buf
 	)
 {

@@ -44,7 +44,7 @@ int prime_impulse_test(struct fftset *fftset, unsigned length, float *buf1, floa
 	}
 
 	/* Do a forward FFT. */
-	fftset_fft_forward(fft, buf1, buf2, buf3);
+	fftset_fft_forward(fft, buf2, buf1, buf3);
 
 	/* Save it. */
 	memcpy(buf3, buf2, sizeof(float) * length);

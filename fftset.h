@@ -124,32 +124,32 @@ const struct fftset_fft *fftset_create_fft(struct fftset *fc, const struct fftse
 void
 fftset_fft_forward
 	(const struct fftset_fft    *first_pass
-	,const float                *input_buf
 	,float                      *output_buf
+	,const float                *input_buf
 	,float                      *work_buf
 	);
 
 void
 fftset_fft_inverse
 	(const struct fftset_fft    *first_pass
-	,const float                *input_buf
 	,float                      *output_buf
+	,const float                *input_buf
 	,float                      *work_buf
 	);
 
 void
 fftset_fft_conv_get_kernel
 	(const struct fftset_fft    *first_pass
-	,const float                *input_buf
 	,float                      *output_buf
+	,const float                *input_buf
 	);
 
 void
 fftset_fft_conv
 	(const struct fftset_fft    *first_pass
+	,float                      *output_buf
 	,const float                *input_buf
 	,const float                *kernel_buf
-	,float                      *output_buf
 	,float                      *work_buf
 	);
 
