@@ -196,7 +196,7 @@ fftset_fft_inverse
 
 void fftset_init(struct fftset *fc)
 {
-	aalloc_init(&fc->memory, 16, 64*1024);
+	aalloc_init(&fc->memory, 33554432, 16, 64*1024);
 	fc->first_outer = NULL;
 	fc->first_inner = NULL;
 }

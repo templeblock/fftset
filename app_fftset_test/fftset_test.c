@@ -107,7 +107,7 @@ int main(int argc, char *argv[])
 	float *tmp2;
 	float *tmp3;
 
-	aalloc_init(&aalloc, 64, 16384);
+	aalloc_init(&aalloc, 33554432, 64, 16384);
 	fftset_init(&fftset);
 
 	tmp1 = aalloc_alloc(&aalloc, sizeof(float) * 1024);
