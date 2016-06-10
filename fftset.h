@@ -71,6 +71,9 @@ void fftset_destroy(struct fftset *fc);
  * unsuitable for some uses. */
 extern const struct fftset_modulation *FFTSET_MODULATION_FREQ_OFFSET_REAL;
 
+/* FFTSET_MODULATION_COMPLEX describes a boring FFT. */
+extern const struct fftset_modulation *FFTSET_MODULATION_COMPLEX;
+
 const struct fftset_fft *fftset_create_fft(struct fftset *fc, const struct fftset_modulation *modulation, unsigned complex_bins);
 
 /* Modulator Execution

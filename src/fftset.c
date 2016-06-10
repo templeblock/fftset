@@ -39,6 +39,8 @@ struct fftset_fft {
 	unsigned       lfft;
 	unsigned       radix;
 
+	const struct fftset_modulation *modulator;
+
 	const float   *main_twiddle;
 	const float   *reord_twiddle;
 
@@ -213,7 +215,7 @@ const struct fftset_fft *fftset_create_fft(struct fftset *fc, const struct fftse
 
 	/* Find the pass. */
 	for (pass = fc->first_outer; pass != NULL; pass = pass->next) {
-		if (pass->lfft == complex_bins)
+		if (pass->lfft == complex_bins && pass->modulator == modulation)
 			return pass;
 		if (pass->lfft < complex_bins)
 			break;
@@ -247,6 +249,7 @@ const struct fftset_fft *fftset_create_fft(struct fftset *fc, const struct fftse
 		return NULL;
 
 	pass->lfft          = complex_bins;
+	pass->modulator     = modulation;
 	pass->radix         = modulation->radix;
 	pass->forward       = modulation->forward;
 	pass->reverse       = modulation->reverse;
