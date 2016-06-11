@@ -27,7 +27,7 @@
 #include <assert.h>
 #include <math.h>
 
-static void fastconv_v4_upload(float *vec_output, const float *input, const float *coefs, unsigned fft_len)
+static void modcplx_forward_first(float *vec_output, const float *input, const float *coefs, unsigned fft_len)
 {
 	unsigned j;
 	for (j = 0; j < fft_len / 4; j++) {
@@ -82,7 +82,7 @@ static void fastconv_v4_upload(float *vec_output, const float *input, const floa
 	}
 }
 
-static void fastconv_v4_download(float *vec_output, const float *input, const float *coefs, unsigned fft_len)
+static void modcplx_inverse_final(float *vec_output, const float *input, const float *coefs, unsigned fft_len)
 {
 	unsigned j;
 	for (j = 0; j < fft_len / 4; j++) {
@@ -148,7 +148,7 @@ static void fastconv_v4_download(float *vec_output, const float *input, const fl
 	}
 }
 
-static void fwd_post_reorder(float *out_buf, const float *in_buf, const float *twid, unsigned lfft)
+static void modcplx_forward_reorder(float *out_buf, const float *in_buf, const float *twid, unsigned lfft)
 {
 	unsigned i;
 	for (i = 0; i < lfft / 8; i++) {
@@ -159,7 +159,7 @@ static void fwd_post_reorder(float *out_buf, const float *in_buf, const float *t
 	}
 }
 
-static void rev_post_reorder(float *out_buf, const float *in_buf, const float *twid, unsigned lfft)
+static void modcplx_inverse_reorder(float *out_buf, const float *in_buf, const float *twid, unsigned lfft)
 {
 	unsigned i;
 	for (i = 0; i < lfft / 8; i++) {
@@ -176,10 +176,10 @@ static const struct fftset_modulation FFTSET_MODULATION_COMPLEX_DEF =
 {   4
 ,   NULL
 ,   NULL
-,   fastconv_v4_upload
-,   fwd_post_reorder
-,   rev_post_reorder
-,   fastconv_v4_download
+,   modcplx_forward_first
+,   modcplx_forward_reorder
+,   modcplx_inverse_reorder
+,   modcplx_inverse_final
 };
 
 const struct fftset_modulation *FFTSET_MODULATION_COMPLEX = &FFTSET_MODULATION_COMPLEX_DEF;

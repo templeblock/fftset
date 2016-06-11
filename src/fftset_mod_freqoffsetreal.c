@@ -27,7 +27,7 @@
 #include <assert.h>
 #include <math.h>
 
-static void fastconv_v4_upload(float *vec_output, const float *input, const float *coefs, unsigned fft_len)
+static void modfreqoffsetreal_forward_first(float *vec_output, const float *input, const float *coefs, unsigned fft_len)
 {
 	const unsigned fft_len_4 = fft_len / 4;
 	unsigned i;
@@ -133,7 +133,7 @@ static void fastconv_v4_upload(float *vec_output, const float *input, const floa
 	}
 }
 
-static void fastconv_v4_download(float *output, const float *vec_input, const float *coefs, unsigned fft_len)
+static void modfreqoffsetreal_inverse_final(float *output, const float *vec_input, const float *coefs, unsigned fft_len)
 {
 	const unsigned fft_len_4 = fft_len / 4;
 	unsigned i;
@@ -239,7 +239,7 @@ static void fastconv_v4_download(float *output, const float *vec_input, const fl
 	}
 }
 
-static void fwd_post_reorder(float *out_buf, const float *in_buf, const float *twid, unsigned lfft)
+static void modfreqoffsetreal_forward_reorder(float *out_buf, const float *in_buf, const float *twid, unsigned lfft)
 {
 	unsigned i;
 	for (i = 0; i < lfft / 8; i++) {
@@ -256,7 +256,7 @@ static void fwd_post_reorder(float *out_buf, const float *in_buf, const float *t
 	}
 }
 
-static void rev_post_reorder(float *out_buf, const float *in_buf, const float *twid, unsigned lfft)
+static void modfreqoffsetreal_inverse_reorder(float *out_buf, const float *in_buf, const float *twid, unsigned lfft)
 {
 	unsigned i;
 	for (i = 0; i < lfft / 8; i++) {
@@ -274,7 +274,7 @@ static void rev_post_reorder(float *out_buf, const float *in_buf, const float *t
 	}
 }
 
-static const float *get_twid(struct aalloc *alloc, unsigned length)
+static const float *modfreqoffsetreal_get_twid(struct aalloc *alloc, unsigned length)
 {
 	float *twid = aalloc_align_alloc(alloc, sizeof(float) * 56 * length / 16, 64);
 	if (twid != NULL) {
@@ -344,11 +344,11 @@ static const float *get_twid(struct aalloc *alloc, unsigned length)
 static const struct fftset_modulation FFTSET_MODULATION_FREQ_OFFSET_REAL_DEF =
 {   4
 ,   NULL
-,   get_twid
-,   fastconv_v4_upload
-,   fwd_post_reorder
-,   rev_post_reorder
-,   fastconv_v4_download
+,   modfreqoffsetreal_get_twid
+,   modfreqoffsetreal_forward_first
+,   modfreqoffsetreal_forward_reorder
+,   modfreqoffsetreal_inverse_reorder
+,   modfreqoffsetreal_inverse_final
 };
 
 const struct fftset_modulation *FFTSET_MODULATION_FREQ_OFFSET_REAL = &FFTSET_MODULATION_FREQ_OFFSET_REAL_DEF;
