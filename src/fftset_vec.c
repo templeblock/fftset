@@ -27,6 +27,14 @@
 #include <assert.h>
 #include <math.h>
 
+#if !defined(V4F_EXISTS)
+/* What is the deal with this?
+ * This will likely to change at some point when the cop vectors are extended
+ * to support longer (or shorter) vector "vlf" type. All the external
+ * modulators will need to change at this point also. */
+#error "this module requires a v4f type at this point in time"
+#endif
+
 static void fc_v4_dif_r2(float *work_buf, unsigned nfft, unsigned lfft, const float *twid)
 {
 	unsigned rinc = lfft * 8;
