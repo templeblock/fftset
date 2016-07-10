@@ -66,6 +66,115 @@ static void fc_v4_dif_r2(float *work_buf, unsigned nfft, unsigned lfft, const fl
 	} while (--nfft);
 }
 
+static void fc_v4_dit_r2(float *work_buf, unsigned nfft, unsigned lfft, const float *twid)
+{
+	unsigned rinc = lfft * 8;
+	do {
+		unsigned j;
+		for (j = 0; j < lfft; j++, work_buf += 8) {
+			v4f nre  = v4f_ld(work_buf + 0);
+			v4f nim  = v4f_ld(work_buf + 4);
+			v4f ptre = v4f_ld(work_buf + rinc + 0);
+			v4f ptim = v4f_ld(work_buf + rinc + 4);
+			v4f tre  = v4f_broadcast(twid[2*j+0]);
+			v4f tim  = v4f_broadcast(twid[2*j+1]);
+			v4f frea = v4f_mul(ptre, tre);
+			v4f freb = v4f_mul(ptim, tim);
+			v4f fima = v4f_mul(ptre, tim);
+			v4f fimb = v4f_mul(ptim, tre);
+			v4f fre  = v4f_sub(frea, freb);
+			v4f fim  = v4f_add(fima, fimb);
+			v4f onre = v4f_add(nre, fre);
+			v4f onim = v4f_add(nim, fim);
+			v4f ofre = v4f_sub(nre, fre);
+			v4f ofim = v4f_sub(nim, fim);
+			v4f_st(work_buf + 0, onre);
+			v4f_st(work_buf + 4, onim);
+			v4f_st(work_buf + rinc + 0, ofre);
+			v4f_st(work_buf + rinc + 4, ofim);
+		}
+		work_buf += rinc;
+	} while (--nfft);
+}
+
+static void fc_v4_stock_r2(const float *in, float *out, const float *twid, unsigned ncol, unsigned nrow_div_radix)
+{
+	const unsigned ooffset = (2*4)*ncol;
+	const unsigned ioffset = ooffset*nrow_div_radix;
+	do {
+		const float *in0 = in;
+		const float *tp   = twid;
+		unsigned     j    = ncol;
+		do {
+			v4f r0, i0, r1, i1;
+			v4f or0, oi0, or1, oi1;
+			v4f twr1, twi1;
+			V4F_LD2(r0, i0, in0 + 0*ooffset);
+			V4F_LD2(r1, i1, in0 + 1*ooffset);
+			twr1     = v4f_broadcast(tp[0]);
+			twi1     = v4f_broadcast(tp[1]);
+			or1      = v4f_sub(r0, r1);
+			oi1      = v4f_sub(i0, i1);
+			or0      = v4f_add(r0, r1);
+			oi0      = v4f_add(i0, i1);
+			v4f or1a = v4f_mul(or1, twr1);
+			v4f or1b = v4f_mul(oi1, twi1);
+			v4f oi1a = v4f_mul(or1, twi1);
+			v4f oi1b = v4f_mul(oi1, twr1);
+			r1       = v4f_sub(or1a, or1b);
+			i1       = v4f_add(oi1a, oi1b);
+			v4f_st(out + 0*ioffset + 0*4, or0);
+			v4f_st(out + 0*ioffset + 1*4, oi0);
+			v4f_st(out + 1*ioffset + 0*4, r1);
+			v4f_st(out + 1*ioffset + 1*4, i1);
+			tp   += 2;
+			out  += (2*4);
+			in0  += (2*4);
+		} while (--j);
+		in = in + 2*ooffset;
+	} while (--nrow_div_radix);
+}
+
+void fc_v4_r2_inner(float *work_buf, unsigned nfft, unsigned lfft, const float *twid)
+{
+	assert(lfft == 1);
+	do {
+		v4f nre, nim, fre, fim;
+		v4f onre, onim, ofre, ofim;
+		V4F_LD2(nre, nim, work_buf + 0);
+		V4F_LD2(fre, fim, work_buf + 8);
+		onre = v4f_add(nre, fre);
+		onim = v4f_add(nim, fim);
+		ofre = v4f_sub(nre, fre);
+		ofim = v4f_sub(nim, fim);
+		V4F_ST2(work_buf + 0, onre, onim);
+		V4F_ST2(work_buf + 8, ofre, ofim);
+
+		work_buf += 16;
+	} while (--nfft);
+}
+
+void fc_v4_stock_r2_inner(const float *in, float *out, const float *twid, unsigned ncol, unsigned nrow_div_radix)
+{
+	const unsigned ioffset = 8*nrow_div_radix;
+	assert(ncol == 1);
+	do {
+		v4f r0, i0, r1, i1;
+		v4f or0, oi0, or1, oi1;
+		V4F_LD2(r0, i0, in + 0);
+		V4F_LD2(r1, i1, in + 8);
+		or1 = v4f_sub(r0, r1);
+		oi1 = v4f_sub(i0, i1);
+		or0 = v4f_add(r0, r1);
+		oi0 = v4f_add(i0, i1);
+		V4F_ST2(out + 0*ioffset, or0, oi0);
+		V4F_ST2(out + 1*ioffset, or1, oi1);
+
+		out  += 8;
+		in   += 16;
+	} while (--nrow_div_radix);
+}
+
 static void fc_v4_dif_r4(float *work_buf, unsigned nfft, unsigned lfft, const float *twid)
 {
 	unsigned rinc = lfft * 8;
@@ -131,37 +240,6 @@ static void fc_v4_dif_r4(float *work_buf, unsigned nfft, unsigned lfft, const fl
 			v4f_st(work_buf + 3*rinc + 4, o3i);
 		}
 		work_buf += 3*rinc;
-	} while (--nfft);
-}
-
-static void fc_v4_dit_r2(float *work_buf, unsigned nfft, unsigned lfft, const float *twid)
-{
-	unsigned rinc = lfft * 8;
-	do {
-		unsigned j;
-		for (j = 0; j < lfft; j++, work_buf += 8) {
-			v4f nre  = v4f_ld(work_buf + 0);
-			v4f nim  = v4f_ld(work_buf + 4);
-			v4f ptre = v4f_ld(work_buf + rinc + 0);
-			v4f ptim = v4f_ld(work_buf + rinc + 4);
-			v4f tre  = v4f_broadcast(twid[2*j+0]);
-			v4f tim  = v4f_broadcast(twid[2*j+1]);
-			v4f frea = v4f_mul(ptre, tre);
-			v4f freb = v4f_mul(ptim, tim);
-			v4f fima = v4f_mul(ptre, tim);
-			v4f fimb = v4f_mul(ptim, tre);
-			v4f fre  = v4f_sub(frea, freb);
-			v4f fim  = v4f_add(fima, fimb);
-			v4f onre = v4f_add(nre, fre);
-			v4f onim = v4f_add(nim, fim);
-			v4f ofre = v4f_sub(nre, fre);
-			v4f ofim = v4f_sub(nim, fim);
-			v4f_st(work_buf + 0, onre);
-			v4f_st(work_buf + 4, onim);
-			v4f_st(work_buf + rinc + 0, ofre);
-			v4f_st(work_buf + rinc + 4, ofim);
-		}
-		work_buf += rinc;
 	} while (--nfft);
 }
 
@@ -231,44 +309,6 @@ static void fc_v4_dit_r4(float *work_buf, unsigned nfft, unsigned lfft, const fl
 		}
 		work_buf += 3*rinc;
 	} while (--nfft);
-}
-
-static void fc_v4_stock_r2(const float *in, float *out, const float *twid, unsigned ncol, unsigned nrow_div_radix)
-{
-	const unsigned ooffset = (2*4)*ncol;
-	const unsigned ioffset = ooffset*nrow_div_radix;
-	do {
-		const float *in0 = in;
-		const float *tp   = twid;
-		unsigned     j    = ncol;
-		do {
-			v4f r0, i0, r1, i1;
-			v4f or0, oi0, or1, oi1;
-			v4f twr1, twi1;
-			V4F_LD2(r0, i0, in0 + 0*ooffset);
-			V4F_LD2(r1, i1, in0 + 1*ooffset);
-			twr1     = v4f_broadcast(tp[0]);
-			twi1     = v4f_broadcast(tp[1]);
-			or1      = v4f_sub(r0, r1);
-			oi1      = v4f_sub(i0, i1);
-			or0      = v4f_add(r0, r1);
-			oi0      = v4f_add(i0, i1);
-			v4f or1a = v4f_mul(or1, twr1);
-			v4f or1b = v4f_mul(oi1, twi1);
-			v4f oi1a = v4f_mul(or1, twi1);
-			v4f oi1b = v4f_mul(oi1, twr1);
-			r1       = v4f_sub(or1a, or1b);
-			i1       = v4f_add(oi1a, oi1b);
-			v4f_st(out + 0*ioffset+0*4, or0);
-			v4f_st(out + 0*ioffset+1*4, oi0);
-			v4f_st(out + 1*ioffset+0*4, r1);
-			v4f_st(out + 1*ioffset+1*4, i1);
-			tp   += 2;
-			out  += (2*4);
-			in0  += (2*4);
-		} while (--j);
-		in = in + 2*ooffset;
-	} while (--nrow_div_radix);
 }
 
 static void fc_v4_stock_r4(const float *in, float *out, const float *twid, unsigned ncol, unsigned nrow_div_radix)
@@ -344,6 +384,300 @@ static void fc_v4_stock_r4(const float *in, float *out, const float *twid, unsig
 	} while (--nrow_div_radix);
 }
 
+static void fc_v4_r4_inner(float *work_buf, unsigned nfft, unsigned lfft, const float *twid)
+{
+	assert(lfft == 0);
+	do {
+		v4f b0r   = v4f_ld(work_buf + 0);
+		v4f b0i   = v4f_ld(work_buf + 4);
+		v4f b1r   = v4f_ld(work_buf + 8);
+		v4f b1i   = v4f_ld(work_buf + 12);
+		v4f b2r   = v4f_ld(work_buf + 16);
+		v4f b2i   = v4f_ld(work_buf + 20);
+		v4f b3r   = v4f_ld(work_buf + 24);
+		v4f b3i   = v4f_ld(work_buf + 28);
+		v4f yr0   = v4f_add(b0r, b2r);
+		v4f yi0   = v4f_add(b0i, b2i);
+		v4f yr2   = v4f_sub(b0r, b2r);
+		v4f yi2   = v4f_sub(b0i, b2i);
+		v4f yr1   = v4f_add(b1r, b3r);
+		v4f yi1   = v4f_add(b1i, b3i);
+		v4f yr3   = v4f_sub(b1r, b3r);
+		v4f yi3   = v4f_sub(b1i, b3i);
+		v4f tr0   = v4f_add(yr0, yr1);
+		v4f ti0   = v4f_add(yi0, yi1);
+		v4f tr2   = v4f_sub(yr0, yr1);
+		v4f ti2   = v4f_sub(yi0, yi1);
+		v4f tr1   = v4f_add(yr2, yi3);
+		v4f ti1   = v4f_sub(yi2, yr3);
+		v4f tr3   = v4f_sub(yr2, yi3);
+		v4f ti3   = v4f_add(yi2, yr3);
+		v4f_st(work_buf + 0,  tr0);
+		v4f_st(work_buf + 4,  ti0);
+		v4f_st(work_buf + 8,  tr1);
+		v4f_st(work_buf + 12, ti1);
+		v4f_st(work_buf + 16, tr2);
+		v4f_st(work_buf + 20, ti2);
+		v4f_st(work_buf + 24, tr3);
+		v4f_st(work_buf + 28, ti3);
+
+		work_buf += 32;
+	} while (--nfft);
+}
+
+static void fc_v4_stock_r4_inner(const float *in, float *out, const float *twid, unsigned ncol, unsigned nrow_div_radix)
+{
+	const unsigned ioffset = 8*nrow_div_radix;
+	assert(ncol == 1);
+	do {
+		v4f b0r, b0i, b1r, b1i, b2r, b2i, b3r, b3i;
+		v4f y0r, y0i, y1r, y1i, y2r, y2i, y3r, y3i;
+		v4f z0r, z0i, z1r, z1i, z2r, z2i, z3r, z3i;
+
+		V4F_LD2(b0r, b0i, in + 0);
+		V4F_LD2(b1r, b1i, in + 8);
+		V4F_LD2(b2r, b2i, in + 16);
+		V4F_LD2(b3r, b3i, in + 24);
+		y0r  = v4f_add(b0r, b2r);
+		y0i  = v4f_add(b0i, b2i);
+		y2r  = v4f_sub(b0r, b2r);
+		y2i  = v4f_sub(b0i, b2i);
+		y1r  = v4f_add(b1r, b3r);
+		y1i  = v4f_add(b1i, b3i);
+		y3r  = v4f_sub(b1r, b3r);
+		y3i  = v4f_sub(b1i, b3i);
+		z0r  = v4f_add(y0r, y1r);
+		z0i  = v4f_add(y0i, y1i);
+		z2r  = v4f_sub(y0r, y1r);
+		z2i  = v4f_sub(y0i, y1i);
+		z1r  = v4f_add(y2r, y3i);
+		z1i  = v4f_sub(y2i, y3r);
+		z3r  = v4f_sub(y2r, y3i);
+		z3i  = v4f_add(y2i, y3r);
+		V4F_ST2(out + 0*ioffset, z0r, z0i);
+		V4F_ST2(out + 1*ioffset, z1r, z1i);
+		V4F_ST2(out + 2*ioffset, z2r, z2i);
+		V4F_ST2(out + 3*ioffset, z3r, z3i);
+
+		out += 2*4;
+		in  += 4*2*4;
+	} while (--nrow_div_radix);
+}
+
+static void fc_v4_r8_inner(float *work_buf, unsigned nfft, unsigned lfft, const float *twid)
+{
+	static const float root_half = -0.707106781186548f;
+	const v4f vec_root_half = v4f_broadcast(root_half);
+
+	assert(lfft == 1);
+	do {
+		v4f a0r, a0i, a1r, a1i, a2r, a2i, a3r, a3i, a4r, a4i, a5r, a5i, a6r, a6i, a7r, a7i;
+		v4f b0r, b0i, b1r, b1i, b2r, b2i, b3r, b3i, b4r, b4i, b5r, b5i, b6r, b6i, b7r, b7i;
+		v4f c0r, c0i, c1r, c1i, c2r, c2i, c3r, c3i, c4r, c4i, c5r, c5i, c6r, c6i, c7r, c7i;
+		v4f d0r, d0i, d1r, d1i, d2r, d2i, d3r, d3i, d4r, d4i, d5r, d5i, d6r, d6i, d7r, d7i;
+		v4f e0r, e0i, e2r, e2i, e3r, e3i, e4r, e4i;
+
+		V4F_LD2(a0r, a0i, work_buf + 0);
+		V4F_LD2(a1r, a1i, work_buf + 8);
+		V4F_LD2(a2r, a2i, work_buf + 16);
+		V4F_LD2(a3r, a3i, work_buf + 24);
+		V4F_LD2(a4r, a4i, work_buf + 32);
+		V4F_LD2(a5r, a5i, work_buf + 40);
+		V4F_LD2(a6r, a6i, work_buf + 48);
+		V4F_LD2(a7r, a7i, work_buf + 56);
+
+		b0r = v4f_add(a0r, a4r);
+		b4r = v4f_sub(a0r, a4r);
+		b0i = v4f_add(a0i, a4i);
+		b4i = v4f_sub(a0i, a4i);
+
+		b1r = v4f_add(a1r, a5r);
+		e0r = v4f_sub(a1r, a5r);
+		b1i = v4f_add(a1i, a5i);
+		e0i = v4f_sub(a5i, a1i);
+
+		b2r = v4f_add(a2r, a6r);
+		b6i = v4f_sub(a6r, a2r);
+		b2i = v4f_add(a2i, a6i);
+		b6r = v4f_sub(a2i, a6i);
+
+		b3r = v4f_add(a3r, a7r);
+		e2r = v4f_sub(a3r, a7r);
+		b3i = v4f_add(a3i, a7i);
+		e2i = v4f_sub(a3i, a7i);
+
+		c0r = v4f_add(b0r, b2r);
+		c2r = v4f_sub(b0r, b2r);
+		c0i = v4f_add(b0i, b2i);
+		c2i = v4f_sub(b0i, b2i);
+
+		c1r = v4f_add(b1r, b3r);
+		c3r = v4f_sub(b1r, b3r);
+		c1i = v4f_add(b1i, b3i);
+		c3i = v4f_sub(b1i, b3i);
+
+		d0r = v4f_add(c0r, c1r);
+		d4r = v4f_sub(c0r, c1r);
+		d0i = v4f_add(c0i, c1i);
+		d4i = v4f_sub(c0i, c1i);
+
+		V4F_ST2(work_buf + 0,  d0r, d0i);
+
+		d2r = v4f_add(c2r, c3i);
+		d6r = v4f_sub(c2r, c3i);
+		d2i = v4f_sub(c2i, c3r);
+		d6i = v4f_add(c2i, c3r);
+
+		e3r = v4f_sub(e0i, e0r);
+		e3i = v4f_add(e0r, e0i);
+		e4r = v4f_sub(e2r, e2i);
+		e4i = v4f_add(e2r, e2i);
+
+		b5r = v4f_mul(e3r, vec_root_half);
+		b5i = v4f_mul(e3i, vec_root_half);
+		b7r = v4f_mul(e4r, vec_root_half);
+		b7i = v4f_mul(e4i, vec_root_half);
+
+		c4r = v4f_add(b4r, b6r);
+		c6r = v4f_sub(b4r, b6r);
+		c4i = v4f_add(b4i, b6i);
+		c6i = v4f_sub(b4i, b6i);
+
+		c5r = v4f_add(b5r, b7r);
+		c7r = v4f_sub(b5r, b7r);
+		c5i = v4f_add(b5i, b7i);
+		c7i = v4f_sub(b5i, b7i);
+
+		d1r = v4f_add(c4r, c5r);
+		d5r = v4f_sub(c4r, c5r);
+		d1i = v4f_add(c4i, c5i);
+		d5i = v4f_sub(c4i, c5i);
+
+		d3r = v4f_add(c6r, c7i);
+		d7r = v4f_sub(c6r, c7i);
+		d3i = v4f_sub(c6i, c7r);
+		d7i = v4f_add(c6i, c7r);
+
+		V4F_ST2(work_buf + 8,  d1r, d1i);
+		V4F_ST2(work_buf + 16, d2r, d2i);
+		V4F_ST2(work_buf + 24, d3r, d3i);
+		V4F_ST2(work_buf + 32, d4r, d4i);
+		V4F_ST2(work_buf + 40, d5r, d5i);
+		V4F_ST2(work_buf + 48, d6r, d6i);
+		V4F_ST2(work_buf + 56, d7r, d7i);
+
+		work_buf += 64;
+	} while (--nfft);
+}
+
+static void fc_v4_stock_r8_inner(const float *in, float *out, const float *twid, unsigned ncol, unsigned nrow_div_radix)
+{
+	static const float root_half = -0.707106781186548f;
+	const v4f vec_root_half = v4f_broadcast(root_half);
+	const unsigned ioffset = 8*nrow_div_radix;
+
+	assert(lfft == 1);
+	do {
+		v4f a0r, a0i, a1r, a1i, a2r, a2i, a3r, a3i, a4r, a4i, a5r, a5i, a6r, a6i, a7r, a7i;
+		v4f b0r, b0i, b1r, b1i, b2r, b2i, b3r, b3i, b4r, b4i, b5r, b5i, b6r, b6i, b7r, b7i;
+		v4f c0r, c0i, c1r, c1i, c2r, c2i, c3r, c3i, c4r, c4i, c5r, c5i, c6r, c6i, c7r, c7i;
+		v4f d0r, d0i, d1r, d1i, d2r, d2i, d3r, d3i, d4r, d4i, d5r, d5i, d6r, d6i, d7r, d7i;
+		v4f e0r, e0i, e2r, e2i, e3r, e3i, e4r, e4i;
+
+		V4F_LD2(a0r, a0i, in + 0);
+		V4F_LD2(a1r, a1i, in + 8);
+		V4F_LD2(a2r, a2i, in + 16);
+		V4F_LD2(a3r, a3i, in + 24);
+		V4F_LD2(a4r, a4i, in + 32);
+		V4F_LD2(a5r, a5i, in + 40);
+		V4F_LD2(a6r, a6i, in + 48);
+		V4F_LD2(a7r, a7i, in + 56);
+
+		b0r = v4f_add(a0r, a4r);
+		b4r = v4f_sub(a0r, a4r);
+		b0i = v4f_add(a0i, a4i);
+		b4i = v4f_sub(a0i, a4i);
+
+		b1r = v4f_add(a1r, a5r);
+		e0r = v4f_sub(a1r, a5r);
+		b1i = v4f_add(a1i, a5i);
+		e0i = v4f_sub(a5i, a1i);
+
+		b2r = v4f_add(a2r, a6r);
+		b6i = v4f_sub(a6r, a2r);
+		b2i = v4f_add(a2i, a6i);
+		b6r = v4f_sub(a2i, a6i);
+
+		b3r = v4f_add(a3r, a7r);
+		e2r = v4f_sub(a3r, a7r);
+		b3i = v4f_add(a3i, a7i);
+		e2i = v4f_sub(a3i, a7i);
+
+		c0r = v4f_add(b0r, b2r);
+		c2r = v4f_sub(b0r, b2r);
+		c0i = v4f_add(b0i, b2i);
+		c2i = v4f_sub(b0i, b2i);
+
+		c1r = v4f_add(b1r, b3r);
+		c3r = v4f_sub(b1r, b3r);
+		c1i = v4f_add(b1i, b3i);
+		c3i = v4f_sub(b1i, b3i);
+
+		d0r = v4f_add(c0r, c1r);
+		d4r = v4f_sub(c0r, c1r);
+		d0i = v4f_add(c0i, c1i);
+		d4i = v4f_sub(c0i, c1i);
+
+		V4F_ST2(out + 0*ioffset, d0r, d0i);
+
+		d2r = v4f_add(c2r, c3i);
+		d6r = v4f_sub(c2r, c3i);
+		d2i = v4f_sub(c2i, c3r);
+		d6i = v4f_add(c2i, c3r);
+
+		e3r = v4f_sub(e0i, e0r);
+		e3i = v4f_add(e0r, e0i);
+		e4r = v4f_sub(e2r, e2i);
+		e4i = v4f_add(e2r, e2i);
+
+		b5r = v4f_mul(e3r, vec_root_half);
+		b5i = v4f_mul(e3i, vec_root_half);
+		b7r = v4f_mul(e4r, vec_root_half);
+		b7i = v4f_mul(e4i, vec_root_half);
+
+		c4r = v4f_add(b4r, b6r);
+		c6r = v4f_sub(b4r, b6r);
+		c4i = v4f_add(b4i, b6i);
+		c6i = v4f_sub(b4i, b6i);
+
+		c5r = v4f_add(b5r, b7r);
+		c7r = v4f_sub(b5r, b7r);
+		c5i = v4f_add(b5i, b7i);
+		c7i = v4f_sub(b5i, b7i);
+
+		d1r = v4f_add(c4r, c5r);
+		d5r = v4f_sub(c4r, c5r);
+		d1i = v4f_add(c4i, c5i);
+		d5i = v4f_sub(c4i, c5i);
+
+		d3r = v4f_add(c6r, c7i);
+		d7r = v4f_sub(c6r, c7i);
+		d3i = v4f_sub(c6i, c7r);
+		d7i = v4f_add(c6i, c7r);
+
+		V4F_ST2(out + 1*ioffset, d1r, d1i);
+		V4F_ST2(out + 2*ioffset, d2r, d2i);
+		V4F_ST2(out + 3*ioffset, d3r, d3i);
+		V4F_ST2(out + 4*ioffset, d4r, d4i);
+		V4F_ST2(out + 5*ioffset, d5r, d5i);
+		V4F_ST2(out + 6*ioffset, d6r, d6i);
+		V4F_ST2(out + 7*ioffset, d7r, d7i);
+
+		out += 2*4;
+		in  += 8*2*4;
+	} while (--nrow_div_radix);
+}
+
 struct fftset_vec *fastconv_get_inner_pass(struct fftset *fc, unsigned length)
 {
 	struct fftset_vec *pass;
@@ -364,7 +698,28 @@ struct fftset_vec *fastconv_get_inner_pass(struct fftset *fc, unsigned length)
 		return NULL;
 
 	/* Detect radix. */
-	if (length % 4 == 0) {
+	if (length == 2) {
+		pass->twiddle        = NULL;
+		pass->lfft_div_radix = length / 2;
+		pass->radix          = 2;
+		pass->dif            = fc_v4_r2_inner;
+		pass->dit            = fc_v4_r2_inner;
+		pass->dif_stockham   = fc_v4_stock_r2_inner;
+	} else if (length == 4) {
+		pass->twiddle        = NULL;
+		pass->lfft_div_radix = length / 4;
+		pass->radix          = 4;
+		pass->dif            = fc_v4_r4_inner;
+		pass->dit            = fc_v4_r4_inner;
+		pass->dif_stockham   = fc_v4_stock_r4_inner;
+	} else if (length == 8) {
+		pass->twiddle        = NULL;
+		pass->lfft_div_radix = length / 8;
+		pass->radix          = 8;
+		pass->dif            = fc_v4_r8_inner;
+		pass->dit            = fc_v4_r8_inner;
+		pass->dif_stockham   = fc_v4_stock_r8_inner;
+	} else if (length % 4 == 0 && length / 4 != 4) {
 		float *twid = aalloc_align_alloc(&fc->memory, sizeof(float) * 6 * length / 4, 64);
 		if (twid == NULL)
 			return NULL;

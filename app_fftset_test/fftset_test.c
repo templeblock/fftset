@@ -96,6 +96,63 @@ int prime_impulse_test(struct fftset *fftset, unsigned length, float *buf1, floa
 	return 0;
 }
 
+int convolution_test(struct fftset *fftset, unsigned length, float *buf1, float *buf2, float *buf3)
+{
+	const struct fftset_fft *fft = fftset_create_fft(fftset, FFTSET_MODULATION_FREQ_OFFSET_REAL, length / 2);
+	unsigned pidx;
+	unsigned i, j;
+	float acc;
+	float avg_re;
+
+	/* Stick a bunch of prime numbers in the first quarter of the buffer. */
+	for (pidx = 0, i = 0; i < length; i++) {
+		if (i == primes[pidx] && i < length / 4) {
+			buf1[i] = 2.0f / length;
+			pidx++;
+		} else {
+			buf1[i] = 0.0f;
+		}
+	}
+
+	/* Put the kernel into buf2. */
+	fftset_fft_conv_get_kernel(fft, buf2, buf1);
+
+	/* More primes. */
+	for (pidx = 0, i = 0; i < length; i++) {
+		if (i == primes[pidx] && i < (length * 3) / 4) {
+			buf1[i] = 1.0f;
+			pidx++;
+		} else {
+			buf1[i] = 0.0f;
+		}
+	}
+
+	/* Convolve. */
+	fftset_fft_conv(fft, buf1, buf1, buf2, buf3);
+
+	/* Build result. */
+	for (i = 0; i < length; i++)
+		buf3[i] = 0.0f;
+	for (i = 0; primes[i] < (length * 3) / 4; i++) {
+		for (j = 0; primes[j] < length / 4; j++) {
+			buf3[primes[i]+primes[j]] += 1.0f;
+		}
+	}
+
+	for (acc = 0.0f, avg_re = 0.0f, j = 0; j < length; j++) {
+		float re = buf3[j] - buf1[j];
+		acc    += re * re;
+		avg_re += re;
+	}
+	acc    = sqrtf(acc / (length / 2));
+	avg_re = avg_re / (length / 2);
+	if (acc > 0.00003) {
+		printf("l=%u) the convolution test failed with an RMS error of %f (avg=%f)\n", length, acc, avg_re);
+		return 1;
+	}
+
+	return 0;
+}
 
 int main(int argc, char *argv[])
 {
@@ -122,6 +179,11 @@ int main(int argc, char *argv[])
 	errors += prime_impulse_test(&fftset, 64,  tmp1, tmp2, tmp3);
 	errors += prime_impulse_test(&fftset, 512, tmp1, tmp2, tmp3);
 	errors += prime_impulse_test(&fftset, 256, tmp1, tmp2, tmp3);
+
+	errors += convolution_test(&fftset, 64,  tmp1, tmp2, tmp3);
+	errors += convolution_test(&fftset, 128, tmp1, tmp2, tmp3);
+	errors += convolution_test(&fftset, 256, tmp1, tmp2, tmp3);
+	errors += convolution_test(&fftset, 512, tmp1, tmp2, tmp3);
 
 	if (errors) {
 		printf("%u tests failed\n", errors);
