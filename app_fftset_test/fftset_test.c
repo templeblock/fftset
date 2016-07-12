@@ -32,6 +32,7 @@ int prime_impulse_test(struct fftset *fftset, unsigned length, float *buf1, floa
 	float acc;
 	float avg_re;
 	float avg_im;
+	float worst;
 
 	/* Stick a bunch of prime numbers in the buffer. */
 	for (pidx = 0, i = 0; i < length; i++) {
@@ -63,10 +64,17 @@ int prime_impulse_test(struct fftset *fftset, unsigned length, float *buf1, floa
 	}
 
 	/* Sum power of remaining buffer. */
+	pidx = 0;
+	worst = 0;
 	for (acc = 0.0f, avg_re = 0.0f, avg_im = 0.0f, j = 0; j < length / 2; j++) {
 		float re = buf2[2*j];
 		float im = buf2[2*j+1];
-		acc    += re * re + im * im;
+		float e2 = re * re + im * im;
+		acc += e2;
+		if (e2 > worst) {
+			worst = e2;
+			pidx = j;
+		}
 		avg_re += re;
 		avg_im += im;
 	}
@@ -74,7 +82,7 @@ int prime_impulse_test(struct fftset *fftset, unsigned length, float *buf1, floa
 	avg_re = avg_re / (length / 2);
 	avg_im = avg_im / (length / 2);
 	if (acc > 0.0002) {
-		printf("l=%u) the impulse test failed with an RMS error of %f (avg=%f,%f)\n", length, acc, avg_re, avg_im);
+		printf("l=%u) the impulse test failed with an RMS error of %f (avg=%f,%f;worst=%u,%f)\n", length, acc, avg_re, avg_im, pidx, sqrtf(worst));
 		return 1;
 	}
 
@@ -171,6 +179,7 @@ int main(int argc, char *argv[])
 	tmp2 = aalloc_alloc(&aalloc, sizeof(float) * 1024);
 	tmp3 = aalloc_alloc(&aalloc, sizeof(float) * 1024);
 
+	errors += prime_impulse_test(&fftset, 32,  tmp1, tmp2, tmp3);
 	errors += prime_impulse_test(&fftset, 128, tmp1, tmp2, tmp3);
 	errors += prime_impulse_test(&fftset, 64,  tmp1, tmp2, tmp3);
 	errors += prime_impulse_test(&fftset, 512, tmp1, tmp2, tmp3);
