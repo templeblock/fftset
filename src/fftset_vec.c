@@ -38,9 +38,12 @@
 #error "this module requires a v4f type at this point in time"
 #endif
 
-static const float C_C4 = 0.707106781186548f;
-static const float C_C8 = 0.923879532511288f;
-static const float C_S8 = 0.382683432365086f;
+static const float C_C3 = 0.5f;               /* PI / 3 */
+static const float C_S3 = 0.86602540378444f;  /* PI / 3 */
+static const float C_C4 = 0.707106781186548f; /* PI / 4 */
+static const float C_C8 = 0.923879532511288f; /* PI / 8 */
+static const float C_S8 = 0.382683432365086f; /* PI / 8 */
+
 
 static COP_ATTR_ALWAYSINLINE void fftset_vec_dif_fft2_offset_io(const float *in, float *out, const float *twid, unsigned in_stride, unsigned out_stride)
 {
@@ -109,6 +112,37 @@ static void fc_v4_dit_r2(float *work_buf, unsigned nfft, unsigned lfft, const fl
 		}
 		work_buf += rinc;
 	} while (--nfft);
+}
+
+static COP_ATTR_ALWAYSINLINE void fftset_vec_dif_fft3_offset_o(const float *in, float *out, unsigned out_stride)
+{
+	v4f r0, i0, r1, i1, r2, i2;
+	v4f or0, oi0, or1, oi1, or2, oi2;
+	v4f tr1, ti1, tr2, ti2;
+	v4f tr3, ti3, tr4, ti4;
+	v4f tr5, ti5;
+	V4F_LD2(r0, i0, in + 0);
+	V4F_LD2(r1, i1, in + 8);
+	V4F_LD2(r2, i2, in + 16);
+	tr1 = v4f_add(r2, r1);
+	ti1 = v4f_add(i2, i1);
+	tr2 = v4f_sub(i2, i1);
+	ti2 = v4f_sub(r2, r1);
+	tr5 = v4f_mul(tr1, C_C3);
+	ti5 = v4f_mul(ti1, C_C3);
+	tr3 = v4f_mul(tr2, C_S3);
+	ti3 = v4f_mul(ti2, C_S3);
+	tr4 = v4f_sub(r0, tr5);
+	ti4 = v4f_sub(i0, ti5);
+	or0 = v4f_add(r0, tr1);
+	oi0 = v4f_add(i0, ti1);
+	or1 = v4f_sub(tr4, tr3);
+	oi1 = v4f_add(ti4, ti3);
+	or2 = v4f_add(tr4, tr3);
+	oi2 = v4f_sub(ti4, ti3);
+	V4F_ST2(out + 0*out_stride, or0, oi0);
+	V4F_ST2(out + 1*out_stride, or1, oi1);
+	V4F_ST2(out + 2*out_stride, or2, oi2);
 }
 
 static COP_ATTR_ALWAYSINLINE void fftset_vec_dif_fft4_offset_io(const float *in, float *out, const float *twid, unsigned in_stride, unsigned out_stride)
@@ -604,6 +638,7 @@ BUILD_INNER_PASSES(n_)
 
 BUILD_STANDARD_PASSES(2, 2)
 BUILD_STANDARD_PASSES(4, 6)
+BUILD_INNER_PASSES(3)
 BUILD_INNER_PASSES(8)
 BUILD_INNER_PASSES(16)
 
@@ -629,28 +664,35 @@ struct fftset_vec *fastconv_get_inner_pass(struct fftset *fc, unsigned length)
 	/* Detect radix. */
 	if (length == 2) {
 		pass->twiddle        = NULL;
-		pass->lfft_div_radix = length / 2;
+		pass->lfft_div_radix = 1;
 		pass->radix          = 2;
 		pass->dif            = fc_v4_r2_inner;
 		pass->dit            = fc_v4_r2_inner;
 		pass->dif_stockham   = fc_v4_stock_r2_inner;
+	} else if (length == 3) {
+		pass->twiddle        = NULL;
+		pass->lfft_div_radix = 1;
+		pass->radix          = 3;
+		pass->dif            = fc_v4_r3_inner;
+		pass->dit            = fc_v4_r3_inner;
+		pass->dif_stockham   = fc_v4_stock_r3_inner;
 	} else if (length == 4) {
 		pass->twiddle        = NULL;
-		pass->lfft_div_radix = length / 4;
+		pass->lfft_div_radix = 1;
 		pass->radix          = 4;
 		pass->dif            = fc_v4_r4_inner;
 		pass->dit            = fc_v4_r4_inner;
 		pass->dif_stockham   = fc_v4_stock_r4_inner;
 	} else if (length == 8) {
 		pass->twiddle        = NULL;
-		pass->lfft_div_radix = length / 8;
+		pass->lfft_div_radix = 1;
 		pass->radix          = 8;
 		pass->dif            = fc_v4_r8_inner;
 		pass->dit            = fc_v4_r8_inner;
 		pass->dif_stockham   = fc_v4_stock_r8_inner;
 	} else if (length == 16) {
 		pass->twiddle        = NULL;
-		pass->lfft_div_radix = length / 16;
+		pass->lfft_div_radix = 1;
 		pass->radix          = 16;
 		pass->dif            = fc_v4_r16_inner;
 		pass->dit            = fc_v4_r16_inner;

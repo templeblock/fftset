@@ -179,6 +179,7 @@ int main(int argc, char *argv[])
 	tmp2 = aalloc_alloc(&aalloc, sizeof(float) * 1024);
 	tmp3 = aalloc_alloc(&aalloc, sizeof(float) * 1024);
 
+	errors += prime_impulse_test(&fftset, 96, tmp1, tmp2, tmp3);
 	errors += prime_impulse_test(&fftset, 32,  tmp1, tmp2, tmp3);
 	errors += prime_impulse_test(&fftset, 128, tmp1, tmp2, tmp3);
 	errors += prime_impulse_test(&fftset, 64,  tmp1, tmp2, tmp3);
@@ -190,6 +191,7 @@ int main(int argc, char *argv[])
 	errors += prime_impulse_test(&fftset, 256, tmp1, tmp2, tmp3);
 
 	errors += convolution_test(&fftset, 64,  tmp1, tmp2, tmp3);
+	errors += convolution_test(&fftset, 96,  tmp1, tmp2, tmp3);
 	errors += convolution_test(&fftset, 128, tmp1, tmp2, tmp3);
 	errors += convolution_test(&fftset, 256, tmp1, tmp2, tmp3);
 	errors += convolution_test(&fftset, 512, tmp1, tmp2, tmp3);
