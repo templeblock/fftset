@@ -44,4 +44,7 @@ struct fftset_vec {
 
 struct fftset_vec *fastconv_get_inner_pass(struct fftset *fc, unsigned length);
 
+/* TODO... do something else */
+#define FFT_VEC_LEN (4)
+
 #endif /* FFTSET_VEC_H */

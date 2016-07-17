@@ -268,9 +268,14 @@ const struct fftset_fft *fftset_create_fft(struct fftset *fc, const struct fftse
 
 static unsigned rounduptonearestfactorisation(unsigned min)
 {
-	unsigned length = 2;
+	unsigned length = 1;
 	while (length < min) {
-		length    *= 2;
+		if (length * 2 >= min)
+			length *= 2;
+		else if (length * 3 >= min)
+			length *= 3;
+		else
+			length *= 4;
 	}
 	return length;
 }
@@ -296,6 +301,6 @@ unsigned fftset_recommend_conv_length(unsigned kernel_length, unsigned max_block
 	/* We do our processing on vectors if we can. The optimal way of doing
 	 * this (which avoids any scalar loads/stores on input/output vectors)
 	 * requires particular length multiples. */
-	return FASTCONV_REAL_LEN_MULTIPLE * rounduptonearestfactorisation((min_real_dft_length + FASTCONV_REAL_LEN_MULTIPLE - 1) / FASTCONV_REAL_LEN_MULTIPLE) / 2;
+	return (FASTCONV_REAL_LEN_MULTIPLE/2) * rounduptonearestfactorisation((min_real_dft_length + FASTCONV_REAL_LEN_MULTIPLE - 1) / FASTCONV_REAL_LEN_MULTIPLE);
 }
 

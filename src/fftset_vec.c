@@ -27,9 +27,6 @@
 #include <assert.h>
 #include <math.h>
 
-/* TODO... do something else */
-#define FFT_VEC_LEN (4)
-
 #if !defined(V4F_EXISTS)
 /* What is the deal with this?
  * This will likely to change at some point when the cop vectors are extended
@@ -812,7 +809,10 @@ struct fftset_vec *fastconv_get_inner_pass(struct fftset *fc, unsigned length)
 		pass->dif            = fc_v4_dif_r3;
 		pass->dit            = fc_v4_dit_r3;
 		pass->dif_stockham   = fc_v4_stock_r3;
-	} else if (length % 4 == 0 && length / 4 != 8 && length / 4 != 4) {
+	} else if (   length % 4 == 0
+			  &&  length / 4 != 8
+			  &&  length / 4 != 4
+			  ) {
 		float *twid = aalloc_align_alloc(&fc->memory, sizeof(float) * 6 * length / 4, 64);
 		if (twid == NULL)
 			return NULL;
