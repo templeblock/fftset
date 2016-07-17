@@ -162,6 +162,9 @@ int convolution_test(struct fftset *fftset, unsigned length, float *buf1, float 
 	return 0;
 }
 
+#define FFT_VEC_LEN          (4)
+#define FREQ_OFFSET_REAL_LEN (FFT_VEC_LEN * FFT_VEC_LEN * 2)
+
 int main(int argc, char *argv[])
 {
 	struct fftset fftset;
@@ -179,22 +182,41 @@ int main(int argc, char *argv[])
 	tmp2 = aalloc_alloc(&aalloc, sizeof(float) * 1024);
 	tmp3 = aalloc_alloc(&aalloc, sizeof(float) * 1024);
 
-	errors += prime_impulse_test(&fftset, 96, tmp1, tmp2, tmp3);
-	errors += prime_impulse_test(&fftset, 32,  tmp1, tmp2, tmp3);
-	errors += prime_impulse_test(&fftset, 128, tmp1, tmp2, tmp3);
-	errors += prime_impulse_test(&fftset, 64,  tmp1, tmp2, tmp3);
-	errors += prime_impulse_test(&fftset, 512, tmp1, tmp2, tmp3);
-	errors += prime_impulse_test(&fftset, 256, tmp1, tmp2, tmp3);
-	errors += prime_impulse_test(&fftset, 128, tmp1, tmp2, tmp3);
-	errors += prime_impulse_test(&fftset, 64,  tmp1, tmp2, tmp3);
-	errors += prime_impulse_test(&fftset, 512, tmp1, tmp2, tmp3);
-	errors += prime_impulse_test(&fftset, 256, tmp1, tmp2, tmp3);
+	/* Test passthrough support. */
+	errors += prime_impulse_test(&fftset, FREQ_OFFSET_REAL_LEN,  tmp1, tmp2, tmp3);
+	errors += convolution_test(&fftset, FREQ_OFFSET_REAL_LEN,  tmp1, tmp2, tmp3);
 
-	errors += convolution_test(&fftset, 64,  tmp1, tmp2, tmp3);
-	errors += convolution_test(&fftset, 96,  tmp1, tmp2, tmp3);
-	errors += convolution_test(&fftset, 128, tmp1, tmp2, tmp3);
-	errors += convolution_test(&fftset, 256, tmp1, tmp2, tmp3);
-	errors += convolution_test(&fftset, 512, tmp1, tmp2, tmp3);
+	/* Test radix-2 most-inner pass. */
+	errors += prime_impulse_test(&fftset, FREQ_OFFSET_REAL_LEN * 2,  tmp1, tmp2, tmp3);
+	errors += convolution_test(&fftset, FREQ_OFFSET_REAL_LEN * 2,  tmp1, tmp2, tmp3);
+
+	/* Test radix-3 most-inner pass. */
+	errors += prime_impulse_test(&fftset, FREQ_OFFSET_REAL_LEN * 3,  tmp1, tmp2, tmp3);
+	errors += convolution_test(&fftset, FREQ_OFFSET_REAL_LEN * 3,  tmp1, tmp2, tmp3);
+
+	/* Test radix-4 most-inner pass. */
+	errors += prime_impulse_test(&fftset, FREQ_OFFSET_REAL_LEN * 4,  tmp1, tmp2, tmp3);
+	errors += convolution_test(&fftset, FREQ_OFFSET_REAL_LEN * 4,  tmp1, tmp2, tmp3);
+
+	/* Test radix-8 most-inner pass. */
+	errors += prime_impulse_test(&fftset, FREQ_OFFSET_REAL_LEN * 8,  tmp1, tmp2, tmp3);
+	errors += convolution_test(&fftset, FREQ_OFFSET_REAL_LEN * 8,  tmp1, tmp2, tmp3);
+
+	/* Test radix-16 most-inner pass. */
+	errors += prime_impulse_test(&fftset, FREQ_OFFSET_REAL_LEN * 16,  tmp1, tmp2, tmp3);
+	errors += convolution_test(&fftset, FREQ_OFFSET_REAL_LEN * 16,  tmp1, tmp2, tmp3);
+
+	/* Test radix-2 vector passes. */
+	errors += prime_impulse_test(&fftset, FREQ_OFFSET_REAL_LEN * 3 * 2,  tmp1, tmp2, tmp3);
+	errors += convolution_test(&fftset, FREQ_OFFSET_REAL_LEN * 3 * 2,  tmp1, tmp2, tmp3);
+
+	/* Test radix-3 vector pass. */
+	errors += prime_impulse_test(&fftset, FREQ_OFFSET_REAL_LEN * 3 * 3,  tmp1, tmp2, tmp3);
+	errors += convolution_test(&fftset, FREQ_OFFSET_REAL_LEN * 3 * 3,  tmp1, tmp2, tmp3);
+
+	/* Test radix-4 vector passes. */
+	errors += prime_impulse_test(&fftset, FREQ_OFFSET_REAL_LEN * 3 * 4,  tmp1, tmp2, tmp3);
+	errors += convolution_test(&fftset, FREQ_OFFSET_REAL_LEN * 3 * 4,  tmp1, tmp2, tmp3);
 
 	if (errors) {
 		printf("%u tests failed\n", errors);
