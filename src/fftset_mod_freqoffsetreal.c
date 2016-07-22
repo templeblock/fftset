@@ -281,65 +281,29 @@ static void modfreqoffsetreal_inverse_reorder(float *out_buf, const float *in_bu
 static const float *modfreqoffsetreal_get_twid(struct aalloc *alloc, unsigned length)
 {
 	float *twid = aalloc_align_alloc(alloc, sizeof(float) * 56 * length / 16, 64);
+	assert((length % 4) == 0);
 	if (twid != NULL) {
 		unsigned i;
-		for (i = 0; i < length / 16; i++) {
-			twid[56*i+0]  = cosf((4*i+0) * -0.5 * M_PI / length);
-			twid[56*i+1]  = cosf((4*i+1) * -0.5 * M_PI / length);
-			twid[56*i+2]  = cosf((4*i+2) * -0.5 * M_PI / length);
-			twid[56*i+3]  = cosf((4*i+3) * -0.5 * M_PI / length);
-			twid[56*i+4]  = sinf((4*i+0) * -0.5 * M_PI / length);
-			twid[56*i+5]  = sinf((4*i+1) * -0.5 * M_PI / length);
-			twid[56*i+6]  = sinf((4*i+2) * -0.5 * M_PI / length);
-			twid[56*i+7]  = sinf((4*i+3) * -0.5 * M_PI / length);
-			twid[56*i+8]  = cosf((4*i+0+1*length/4) * -0.5 * M_PI / length);
-			twid[56*i+9]  = cosf((4*i+1+1*length/4) * -0.5 * M_PI / length);
-			twid[56*i+10] = cosf((4*i+2+1*length/4) * -0.5 * M_PI / length);
-			twid[56*i+11] = cosf((4*i+3+1*length/4) * -0.5 * M_PI / length);
-			twid[56*i+12] = sinf((4*i+0+1*length/4) * -0.5 * M_PI / length);
-			twid[56*i+13] = sinf((4*i+1+1*length/4) * -0.5 * M_PI / length);
-			twid[56*i+14] = sinf((4*i+2+1*length/4) * -0.5 * M_PI / length);
-			twid[56*i+15] = sinf((4*i+3+1*length/4) * -0.5 * M_PI / length);
-			twid[56*i+16] = cosf((4*i+0+2*length/4) * -0.5 * M_PI / length);
-			twid[56*i+17] = cosf((4*i+1+2*length/4) * -0.5 * M_PI / length);
-			twid[56*i+18] = cosf((4*i+2+2*length/4) * -0.5 * M_PI / length);
-			twid[56*i+19] = cosf((4*i+3+2*length/4) * -0.5 * M_PI / length);
-			twid[56*i+20] = sinf((4*i+0+2*length/4) * -0.5 * M_PI / length);
-			twid[56*i+21] = sinf((4*i+1+2*length/4) * -0.5 * M_PI / length);
-			twid[56*i+22] = sinf((4*i+2+2*length/4) * -0.5 * M_PI / length);
-			twid[56*i+23] = sinf((4*i+3+2*length/4) * -0.5 * M_PI / length);
-			twid[56*i+24] = cosf((4*i+0+3*length/4) * -0.5 * M_PI / length);
-			twid[56*i+25] = cosf((4*i+1+3*length/4) * -0.5 * M_PI / length);
-			twid[56*i+26] = cosf((4*i+2+3*length/4) * -0.5 * M_PI / length);
-			twid[56*i+27] = cosf((4*i+3+3*length/4) * -0.5 * M_PI / length);
-			twid[56*i+28] = sinf((4*i+0+3*length/4) * -0.5 * M_PI / length);
-			twid[56*i+29] = sinf((4*i+1+3*length/4) * -0.5 * M_PI / length);
-			twid[56*i+30] = sinf((4*i+2+3*length/4) * -0.5 * M_PI / length);
-			twid[56*i+31] = sinf((4*i+3+3*length/4) * -0.5 * M_PI / length);
-			twid[56*i+32] = cosf(-2.0 * (4*i+0) * M_PI * 1.0 / length);
-			twid[56*i+33] = cosf(-2.0 * (4*i+1) * M_PI * 1.0 / length);
-			twid[56*i+34] = cosf(-2.0 * (4*i+2) * M_PI * 1.0 / length);
-			twid[56*i+35] = cosf(-2.0 * (4*i+3) * M_PI * 1.0 / length);
-			twid[56*i+36] = sinf(-2.0 * (4*i+0) * M_PI * 1.0 / length);
-			twid[56*i+37] = sinf(-2.0 * (4*i+1) * M_PI * 1.0 / length);
-			twid[56*i+38] = sinf(-2.0 * (4*i+2) * M_PI * 1.0 / length);
-			twid[56*i+39] = sinf(-2.0 * (4*i+3) * M_PI * 1.0 / length);
-			twid[56*i+40] = cosf(-2.0 * (4*i+0) * M_PI * 2.0 / length);
-			twid[56*i+41] = cosf(-2.0 * (4*i+1) * M_PI * 2.0 / length);
-			twid[56*i+42] = cosf(-2.0 * (4*i+2) * M_PI * 2.0 / length);
-			twid[56*i+43] = cosf(-2.0 * (4*i+3) * M_PI * 2.0 / length);
-			twid[56*i+44] = sinf(-2.0 * (4*i+0) * M_PI * 2.0 / length);
-			twid[56*i+45] = sinf(-2.0 * (4*i+1) * M_PI * 2.0 / length);
-			twid[56*i+46] = sinf(-2.0 * (4*i+2) * M_PI * 2.0 / length);
-			twid[56*i+47] = sinf(-2.0 * (4*i+3) * M_PI * 2.0 / length);
-			twid[56*i+48] = cosf(-2.0 * (4*i+0) * M_PI * 3.0 / length);
-			twid[56*i+49] = cosf(-2.0 * (4*i+1) * M_PI * 3.0 / length);
-			twid[56*i+50] = cosf(-2.0 * (4*i+2) * M_PI * 3.0 / length);
-			twid[56*i+51] = cosf(-2.0 * (4*i+3) * M_PI * 3.0 / length);
-			twid[56*i+52] = sinf(-2.0 * (4*i+0) * M_PI * 3.0 / length);
-			twid[56*i+53] = sinf(-2.0 * (4*i+1) * M_PI * 3.0 / length);
-			twid[56*i+54] = sinf(-2.0 * (4*i+2) * M_PI * 3.0 / length);
-			twid[56*i+55] = sinf(-2.0 * (4*i+3) * M_PI * 3.0 / length);
+		const float off   = (float)(-M_PI * 0.125);
+		const float scale = off / (float)(length / 4);
+
+		for (i = 0; i < length / 4; i++) {
+			float  fi        = i*scale;
+			float *tp        = twid + ((i % VLF_WIDTH) + (i / VLF_WIDTH)*14*VLF_WIDTH);
+			tp[0*VLF_WIDTH]  = cosf(fi+(0.0f*off));
+			tp[1*VLF_WIDTH]  = sinf(fi+(0.0f*off));
+			tp[2*VLF_WIDTH]  = cosf(fi+(1.0f*off));
+			tp[3*VLF_WIDTH]  = sinf(fi+(1.0f*off));
+			tp[4*VLF_WIDTH]  = cosf(fi+(2.0f*off));
+			tp[5*VLF_WIDTH]  = sinf(fi+(2.0f*off));
+			tp[6*VLF_WIDTH]  = cosf(fi+(3.0f*off));
+			tp[7*VLF_WIDTH]  = sinf(fi+(3.0f*off));
+			tp[8*VLF_WIDTH]  = cosf(fi * 4.0f * 1.0f);
+			tp[9*VLF_WIDTH]  = sinf(fi * 4.0f * 1.0f);
+			tp[10*VLF_WIDTH] = cosf(fi * 4.0f * 2.0f);
+			tp[11*VLF_WIDTH] = sinf(fi * 4.0f * 2.0f);
+			tp[12*VLF_WIDTH] = cosf(fi * 4.0f * 3.0f);
+			tp[13*VLF_WIDTH] = sinf(fi * 4.0f * 3.0f);
 		}
 	}
 	return twid;
