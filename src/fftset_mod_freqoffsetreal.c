@@ -27,16 +27,8 @@
 #include <assert.h>
 #include <math.h>
 
-#if !defined(V4F_EXISTS)
-/* What is the deal with this?
- * At the moment, all of the vector FFT modulators assume a vector length of
- * four. At some point, this will be changed to be the longest vector type
- * available on the system (so we can squeeze a bit more out of AVX and also
- * build the modulators on systems with no vector support...) - at this point
- * all of these modulators will also need to be updated. But for the moment,
- * because the internal FFT passes are V4, the outer FFT passes must all
- * produce V4 data. */
-#error "this module requires a v4f type at this point in time"
+#if VLF_WIDTH != 4
+#error "this implementation requires VLF_WIDTH to be 4 at the moment"
 #endif
 
 static void modfreqoffsetreal_forward_first(float *vec_output, const float *input, const float *coefs, unsigned fft_len)

@@ -19,6 +19,7 @@
  * DEALINGS IN THE SOFTWARE. */
 
 #include "fftset/fftset.h"
+#include "cop/cop_vec.h"
 #include <math.h>
 #include <stdio.h>
 
@@ -162,8 +163,7 @@ int convolution_test(struct fftset *fftset, unsigned length, float *buf1, float 
 	return 0;
 }
 
-#define FFT_VEC_LEN          (4)
-#define FREQ_OFFSET_REAL_LEN (FFT_VEC_LEN * FFT_VEC_LEN * 2)
+#define FREQ_OFFSET_REAL_LEN (VLF_WIDTH * VLF_WIDTH * 2)
 
 int main(int argc, char *argv[])
 {

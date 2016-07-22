@@ -31,8 +31,8 @@
 #include "fftset_modulation.h"
 #include "fftset_vec.h"
 
-#ifndef V4F_EXISTS
-#error this implementation requires a vector-4 type at the moment
+#if VLF_WIDTH != 4
+#error "this implementation requires VLF_WIDTH to be 4 at the moment"
 #endif
 
 struct fftset_fft {
@@ -75,7 +75,7 @@ fftset_fft_conv_get_kernel
 	)
 {
 	const struct fftset_vec *vec_pass;
-	unsigned nfft = 1;
+	unsigned nfft = first_pass->radix / VLF_WIDTH;
 
 	first_pass->forward(output_buf, input_buf, first_pass->main_twiddle, first_pass->lfft);
 
@@ -97,7 +97,7 @@ fftset_fft_conv
 	const struct fftset_vec *pass_stack[FASTCONV_MAX_PASSES];
 	const struct fftset_vec *vec_pass;
 	unsigned si = 0;
-	unsigned nfft = 1;
+	unsigned nfft = first_pass->radix / VLF_WIDTH;
 	unsigned i;
 
 	first_pass->forward(work_buf, input_buf, first_pass->main_twiddle, first_pass->lfft);
@@ -110,18 +110,18 @@ fftset_fft_conv
 	}
 
 	for (i = 0; i < nfft; i++) {
-		v4f dr =         v4f_ld(work_buf   + 8*i+0);
-		v4f di = v4f_neg(v4f_ld(work_buf  + 8*i+4));
-		v4f cr =         v4f_ld(kernel_buf + 8*i+0);
-		v4f ci =         v4f_ld(kernel_buf + 8*i+4);
-		v4f ra = v4f_mul(dr, cr);
-		v4f rb = v4f_mul(di, ci);
-		v4f ia = v4f_mul(di, cr);
-		v4f ib = v4f_mul(dr, ci);
-		v4f ro = v4f_add(ra, rb);
-		v4f io = v4f_sub(ia, ib);
-		v4f_st(work_buf + 8*i + 0, ro);
-		v4f_st(work_buf + 8*i + 4, io);
+		vlf dr =         vlf_ld(work_buf   + VLF_WIDTH*2*i+0);
+		vlf di = vlf_neg(vlf_ld(work_buf   + VLF_WIDTH*2*i+VLF_WIDTH));
+		vlf cr =         vlf_ld(kernel_buf + VLF_WIDTH*2*i+0);
+		vlf ci =         vlf_ld(kernel_buf + VLF_WIDTH*2*i+VLF_WIDTH);
+		vlf ra = vlf_mul(dr, cr);
+		vlf rb = vlf_mul(di, ci);
+		vlf ia = vlf_mul(di, cr);
+		vlf ib = vlf_mul(dr, ci);
+		vlf ro = vlf_add(ra, rb);
+		vlf io = vlf_sub(ia, ib);
+		vlf_st(work_buf + VLF_WIDTH*2*i + 0, ro);
+		vlf_st(work_buf + VLF_WIDTH*2*i + VLF_WIDTH, io);
 	}
 
 	while (si--) {
@@ -143,7 +143,7 @@ fftset_fft_forward
 	)
 {
 	const struct fftset_vec *vec_pass;
-	unsigned nfft = 1;
+	unsigned nfft = first_pass->radix / VLF_WIDTH;
 
 	first_pass->forward(work_buf, input_buf, first_pass->main_twiddle, first_pass->lfft);
 	
@@ -174,7 +174,7 @@ fftset_fft_inverse
 	)
 {
 	const struct fftset_vec *vec_pass;
-	unsigned nfft = 1;
+	unsigned nfft = first_pass->radix / VLF_WIDTH;
 
 	first_pass->reverse_reord(work_buf, input_buf, first_pass->reord_twiddle, first_pass->lfft);
 
