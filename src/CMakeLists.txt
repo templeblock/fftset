@@ -19,3 +19,8 @@ endif()
 
 target_include_directories(fftset PRIVATE "../..")
 target_link_libraries(fftset cop)
+
+if (UNIX)
+  target_link_libraries(fftset m)
+endif()
+
