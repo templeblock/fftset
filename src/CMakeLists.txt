@@ -10,5 +10,12 @@ if (${CMAKE_SOURCE_DIR} STREQUAL ${CMAKE_CURRENT_LIST_DIR})
 endif()
 
 add_library(fftset STATIC fftset.c fftset_mod_freqoffsetreal.c fftset_vec.c fftset_mod_cplx.c ../fftset.h)
+
+if (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+  set_property(TARGET fftset APPEND_STRING PROPERTY COMPILE_FLAGS " /W3")
+else()
+  set_property(TARGET fftset APPEND_STRING PROPERTY COMPILE_FLAGS " -Wall")
+endif()
+
 target_include_directories(fftset PRIVATE "../..")
 target_link_libraries(fftset cop)
