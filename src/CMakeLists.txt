@@ -11,7 +11,7 @@ endif()
 
 add_library(fftset STATIC fftset.c fftset_mod_freqoffsetreal.c fftset_vec.c fftset_mod_cplx.c ../fftset.h)
 
-if (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+if (x${CMAKE_CXX_COMPILER_ID} STREQUAL "xMSVC")
   set_property(TARGET fftset APPEND_STRING PROPERTY COMPILE_FLAGS " /W3")
 else()
   set_property(TARGET fftset APPEND_STRING PROPERTY COMPILE_FLAGS " -Wall")

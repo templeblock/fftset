@@ -69,18 +69,18 @@ static void modcplx_forward_first(float *vec_output, const float *input, const f
 		vec_output[8*j+0] = tr0;
 		vec_output[8*j+4] = ti0;
 
-		twr = cos(j * -2.0 * M_PI / (fft_len / 1));
-		twi = sin(j * -2.0 * M_PI / (fft_len / 1));
+		twr = cosf(j * (float)(-2.0 * M_PI) / (fft_len / 1));
+		twi = sinf(j * (float)(-2.0 * M_PI) / (fft_len / 1));
 		vec_output[8*j+1] = twr * tr1 - twi * ti1;
 		vec_output[8*j+5] = twr * ti1 + twi * tr1;
 
-		twr = cos(j * -4.0 * M_PI / (fft_len / 1));
-		twi = sin(j * -4.0 * M_PI / (fft_len / 1));
+		twr = cosf(j * (float)(-4.0 * M_PI) / (fft_len / 1));
+		twi = sinf(j * (float)(-4.0 * M_PI) / (fft_len / 1));
 		vec_output[8*j+2] = twr * tr2 - twi * ti2;
 		vec_output[8*j+6] = twr * ti2 + twi * tr2;
 
-		twr = cos(j * -6.0 * M_PI / (fft_len / 1));
-		twi = sin(j * -6.0 * M_PI / (fft_len / 1));
+		twr = cosf(j * (float)(-6.0 * M_PI) / (fft_len / 1));
+		twi = sinf(j * (float)(-6.0 * M_PI) / (fft_len / 1));
 		vec_output[8*j+3] = twr * tr3 - twi * ti3;
 		vec_output[8*j+7] = twr * ti3 + twi * tr3;
 	}
@@ -101,22 +101,22 @@ static void modcplx_inverse_final(float *vec_output, const float *input, const f
 		float twr, twi;
 		float tr, ti;
 
-		twr = cos(j * -2.0 * M_PI / (fft_len / 1));
-		twi = sin(j * -2.0 * M_PI / (fft_len / 1));
+		twr = cosf(j * (float)(-2.0 * M_PI) / (fft_len / 1));
+		twi = sinf(j * (float)(-2.0 * M_PI) / (fft_len / 1));
 		tr = r1 * twr - i1 * twi;
 		ti = r1 * twi + i1 * twr;
 		r1 = tr;
 		i1 = ti;
 
-		twr = cos(j * -4.0 * M_PI / (fft_len / 1));
-		twi = sin(j * -4.0 * M_PI / (fft_len / 1));
+		twr = cosf(j * (float)(-4.0 * M_PI) / (fft_len / 1));
+		twi = sinf(j * (float)(-4.0 * M_PI) / (fft_len / 1));
 		tr = r2 * twr - i2 * twi;
 		ti = r2 * twi + i2 * twr;
 		r2 = tr;
 		i2 = ti;
 
-		twr = cos(j * -6.0 * M_PI / (fft_len / 1));
-		twi = sin(j * -6.0 * M_PI / (fft_len / 1));
+		twr = cosf(j * (float)(-6.0 * M_PI) / (fft_len / 1));
+		twi = sinf(j * (float)(-6.0 * M_PI) / (fft_len / 1));
 		tr = r3 * twr - i3 * twi;
 		ti = r3 * twi + i3 * twr;
 		r3 = tr;
