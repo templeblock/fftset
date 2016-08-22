@@ -27,11 +27,19 @@
 #include <assert.h>
 #include <math.h>
 
-static const float C_C3 = 0.5f;               /* PI / 3 */
-static const float C_S3 = 0.86602540378444f;  /* PI / 3 */
-static const float C_C4 = 0.707106781186548f; /* PI / 4 */
-static const float C_C8 = 0.923879532511288f; /* PI / 8 */
-static const float C_S8 = 0.382683432365086f; /* PI / 8 */
+static const float C_2C5 = 0.309016994374948f; /* 2 * PI / 5 */
+static const float C_2S5 = 0.951056516295154f; /* 2 * PI / 5 */
+
+static const float C_C3  = 0.500000000000000f; /* PI / 3 */
+static const float C_S3  = 0.866025403784440f; /* PI / 3 */
+
+static const float C_C4  = 0.707106781186548f; /* PI / 4 */
+
+static const float C_C5  = 0.809016994374947f; /* PI / 5 */
+static const float C_S5  = 0.587785252292473f; /* PI / 5 */
+
+static const float C_C8  = 0.923879532511288f; /* PI / 8 */
+static const float C_S8  = 0.382683432365086f; /* PI / 8 */
 
 static COP_ATTR_ALWAYSINLINE void fftset_vec_dif_fft2_offset_io(const float *in, float *out, const float *twid, unsigned in_stride, unsigned out_stride)
 {
@@ -300,10 +308,10 @@ static COP_ATTR_ALWAYSINLINE void fftset_vec_dif_fft4_offset_o(const float *in, 
 	vlf y0r, y0i, y1r, y1i, y2r, y2i, y3r, y3i;
 	vlf z0r, z0i, z1r, z1i, z2r, z2i, z3r, z3i;
 
-	VLF_LD2(b0r, b0i, in + 0);
-	VLF_LD2(b1r, b1i, in + 8);
-	VLF_LD2(b2r, b2i, in + 16);
-	VLF_LD2(b3r, b3i, in + 24);
+	VLF_LD2(b0r, b0i, in + 0*VLF_WIDTH);
+	VLF_LD2(b1r, b1i, in + 2*VLF_WIDTH);
+	VLF_LD2(b2r, b2i, in + 4*VLF_WIDTH);
+	VLF_LD2(b3r, b3i, in + 6*VLF_WIDTH);
 	y0r  = vlf_add(b0r, b2r);
 	y0i  = vlf_add(b0i, b2i);
 	y2r  = vlf_sub(b0r, b2r);
@@ -384,6 +392,85 @@ static COP_ATTR_ALWAYSINLINE void fftset_vec_dit_fft4_offset_io(const float *in,
 	vlf_st(out + 2*out_stride + 1*VLF_WIDTH, o2i);
 	vlf_st(out + 3*out_stride + 0*VLF_WIDTH, o3r);
 	vlf_st(out + 3*out_stride + 1*VLF_WIDTH, o3i);
+}
+
+static COP_ATTR_ALWAYSINLINE void fftset_vec_dif_fft5_offset_o(const float *in, float *out, unsigned outoffset)
+{
+	const vlf c0r = vlf_broadcast(C_2C5);
+	const vlf c0i = vlf_broadcast(C_2S5);
+	const vlf c1r = vlf_broadcast(C_C5);
+	const vlf c1i = vlf_broadcast(C_S5);
+
+	vlf r0, i0, r1, r2, r3, r4, i1, i2, i3, i4;
+	vlf a0r, a0i, a1r, a1i, a2r, a2i, a3r, a3i;
+	vlf b0r, b0i, b1r, b1i, b2r, b2i, b3r, b3i;
+	vlf d0r, d0i, d1r, d1i, d2r, d2i, d3r, d3i;
+	vlf e0r, e0i, e1r, e1i, e2r, e2i, e3r, e3i;
+	vlf y0r, y0i, y1r, y1i, y2r, y2i, y3r, y3i, y4r, y4i;
+	vlf z0r, z0i, z1r, z1i, z2r, z2i;
+
+	VLF_LD2(r0, i0, in + 0*VLF_WIDTH);
+	VLF_LD2(r1, i1, in + 2*VLF_WIDTH);
+	VLF_LD2(r2, i2, in + 4*VLF_WIDTH);
+	VLF_LD2(r3, i3, in + 6*VLF_WIDTH);
+	VLF_LD2(r4, i4, in + 8*VLF_WIDTH);
+
+	a0r = vlf_add(r2, r3);
+	a2r = vlf_sub(r2, r3);
+	a1r = vlf_add(r1, r4);
+	a3r = vlf_sub(r1, r4);
+	a0i = vlf_add(i2, i3);
+	a2i = vlf_sub(i2, i3);
+	a1i = vlf_add(i1, i4);
+	a3i = vlf_sub(i1, i4);
+
+	z1r = vlf_add(a0r, a1r);
+	z1i = vlf_add(a0i, a1i);
+	y0r = vlf_add(r0, z1r);
+	y0i = vlf_add(i0, z1i);
+	VLF_ST2(out, y0r, y0i);
+
+	d0r = vlf_mul(a3r, c0i);
+	e0r = vlf_mul(a2r, c1i);
+	d0i = vlf_mul(a3r, c1i);
+	e0i = vlf_mul(a2r, c0i);
+	b1i = vlf_add(d0r, e0r);
+	b3i = vlf_sub(e0i, d0i);
+	d1r = vlf_mul(a1r, c0r);
+	e1r = vlf_mul(a0r, c1r);
+	d1i = vlf_mul(a1r, c1r);
+	e1i = vlf_mul(a0r, c0r);
+	b0r = vlf_sub(d1r, e1r);
+	b2r = vlf_sub(e1i, d1i);
+	d2r = vlf_mul(a3i, c0i);
+	e2r = vlf_mul(a2i, c1i);
+	d2i = vlf_mul(a3i, c1i);
+	e2i = vlf_mul(a2i, c0i);
+	b1r = vlf_add(d2r, e2r);
+	b3r = vlf_sub(e2i, d2i);
+	d3r = vlf_mul(a1i, c0r);
+	e3r = vlf_mul(a0i, c1r);
+	d3i = vlf_mul(a1i, c1r);
+	e3i = vlf_mul(a0i, c0r);
+	b0i = vlf_sub(d3r, e3r);
+	b2i = vlf_sub(e3i, d3i);
+
+	z0r = vlf_add(b0r, r0);
+	z2r = vlf_add(b2r, r0);
+	z0i = vlf_add(b0i, i0);
+	z2i = vlf_add(b2i, i0);
+	y1r = vlf_add(z0r, b1r);
+	y1i = vlf_sub(z0i, b1i);
+	y4r = vlf_sub(z0r, b1r);
+	y4i = vlf_add(z0i, b1i);
+	y2r = vlf_sub(z2r, b3r);
+	y2i = vlf_add(z2i, b3i);
+	y3r = vlf_add(z2r, b3r);
+	y3i = vlf_sub(z2i, b3i);
+	VLF_ST2(out + 1*outoffset, y1r, y1i);
+	VLF_ST2(out + 2*outoffset, y2r, y2i);
+	VLF_ST2(out + 3*outoffset, y3r, y3i);
+	VLF_ST2(out + 4*outoffset, y4r, y4i);
 }
 
 static COP_ATTR_ALWAYSINLINE void fftset_vec_dif_fft8_offset_o(const float *in, float *out, unsigned outoffset)
@@ -732,6 +819,7 @@ BUILD_INNER_PASSES(n_)
 BUILD_STANDARD_PASSES(2, 2)
 BUILD_STANDARD_PASSES(3, 4)
 BUILD_STANDARD_PASSES(4, 6)
+BUILD_INNER_PASSES(5)
 BUILD_INNER_PASSES(8)
 BUILD_INNER_PASSES(16)
 
@@ -776,6 +864,13 @@ struct fftset_vec *fastconv_get_inner_pass(struct fftset *fc, unsigned length)
 		pass->dif            = fc_v4_r4_inner;
 		pass->dit            = fc_v4_r4_inner;
 		pass->dif_stockham   = fc_v4_stock_r4_inner;
+	} else if (length == 5) {
+		pass->twiddle        = NULL;
+		pass->lfft_div_radix = 1;
+		pass->radix          = 5;
+		pass->dif            = fc_v4_r5_inner;
+		pass->dit            = fc_v4_r5_inner;
+		pass->dif_stockham   = fc_v4_stock_r5_inner;
 	} else if (length == 8) {
 		pass->twiddle        = NULL;
 		pass->lfft_div_radix = 1;

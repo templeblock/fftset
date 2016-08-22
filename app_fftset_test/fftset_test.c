@@ -198,6 +198,10 @@ int main(int argc, char *argv[])
 	errors += prime_impulse_test(&fftset, FREQ_OFFSET_REAL_LEN * 4,  tmp1, tmp2, tmp3);
 	errors += convolution_test(&fftset, FREQ_OFFSET_REAL_LEN * 4,  tmp1, tmp2, tmp3);
 
+	/* Test radix-5 most-inner pass. */
+	errors += prime_impulse_test(&fftset, FREQ_OFFSET_REAL_LEN * 5,  tmp1, tmp2, tmp3);
+	errors += convolution_test(&fftset, FREQ_OFFSET_REAL_LEN * 5,  tmp1, tmp2, tmp3);
+
 	/* Test radix-8 most-inner pass. */
 	errors += prime_impulse_test(&fftset, FREQ_OFFSET_REAL_LEN * 8,  tmp1, tmp2, tmp3);
 	errors += convolution_test(&fftset, FREQ_OFFSET_REAL_LEN * 8,  tmp1, tmp2, tmp3);
