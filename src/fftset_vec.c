@@ -475,8 +475,7 @@ static COP_ATTR_ALWAYSINLINE void fftset_vec_dif_fft5_offset_o(const float *in, 
 
 static COP_ATTR_ALWAYSINLINE void fftset_vec_dif_fft8_offset_o(const float *in, float *out, unsigned outoffset)
 {
-	static const float root_half = -0.707106781186548f;
-	const vlf vec_root_half = vlf_broadcast(root_half);
+	const vlf vec_root_half = vlf_broadcast(C_C4);
 	vlf a0r, a0i, a1r, a1i, a2r, a2i, a3r, a3i, a4r, a4i, a5r, a5i, a6r, a6i, a7r, a7i;
 	vlf b0r, b0i, b1r, b1i, b2r, b2i, b3r, b3i, b4r, b4i, b5r, b5i, b6r, b6i, b7r, b7i;
 	vlf c0r, c0i, c1r, c1i, c2r, c2i, c3r, c3i, c4r, c4i, c5r, c5i, c6r, c6i, c7r, c7i;
@@ -550,14 +549,14 @@ static COP_ATTR_ALWAYSINLINE void fftset_vec_dif_fft8_offset_o(const float *in, 
 	c6i = vlf_sub(b4i, b6i);
 
 	c5r = vlf_add(b5r, b7r);
-	c7r = vlf_sub(b5r, b7r);
+	c7r = vlf_sub(b7r, b5r);
 	c5i = vlf_add(b5i, b7i);
-	c7i = vlf_sub(b5i, b7i);
+	c7i = vlf_sub(b7i, b5i);
 
-	d1r = vlf_add(c4r, c5r);
-	d5r = vlf_sub(c4r, c5r);
-	d1i = vlf_add(c4i, c5i);
-	d5i = vlf_sub(c4i, c5i);
+	d1r = vlf_sub(c4r, c5r);
+	d5r = vlf_add(c4r, c5r);
+	d1i = vlf_sub(c4i, c5i);
+	d5i = vlf_add(c4i, c5i);
 
 	d3r = vlf_add(c6r, c7i);
 	d7r = vlf_sub(c6r, c7i);
