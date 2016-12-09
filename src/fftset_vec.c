@@ -473,6 +473,74 @@ static COP_ATTR_ALWAYSINLINE void fftset_vec_dif_fft5_offset_o(const float *in, 
 	VLF_ST2(out + 4*outoffset, y4r, y4i);
 }
 
+static COP_ATTR_ALWAYSINLINE void fftset_vec_dif_fft6_offset_o(const float *in, float *out, unsigned outoffset)
+{
+	const vlf c0r = vlf_broadcast(C_C3);
+	const vlf c0i = vlf_broadcast(C_S3);
+	vlf a0r, a0i, a1r, a1i, a2r, a2i, a3r, a3i, a4r, a4i, a5r, a5i;
+	vlf b0r, b0i, b1r, b1i, b2r, b2i, b3r, b3i, b4r, b4i, b5r, b5i;
+	vlf c1r, c1i, c2r, c2i, c3r, c3i, c4r, c4i;
+	vlf d1r, d1i, d2r, d2i, d3r, d3i, d4r, d4i;
+	vlf e1r, e1i, e2r, e2i;
+	vlf f0r, f0i, f1r, f1i, f2r, f2i, f3r, f3i, f4r, f4i, f5r, f5i;
+	VLF_LD2(a0r, a0i, in + 0*VLF_WIDTH);
+	VLF_LD2(a1r, a1i, in + 2*VLF_WIDTH);
+	VLF_LD2(a2r, a2i, in + 4*VLF_WIDTH);
+	VLF_LD2(a3r, a3i, in + 6*VLF_WIDTH);
+	VLF_LD2(a4r, a4i, in + 8*VLF_WIDTH);
+	VLF_LD2(a5r, a5i, in + 10*VLF_WIDTH);
+	b2r = vlf_add(a1r, a5r);
+	b2i = vlf_add(a1i, a5i);
+	b3r = vlf_sub(a1r, a5r);
+	b3i = vlf_sub(a1i, a5i);
+	b4r = vlf_add(a2r, a4r);
+	b4i = vlf_add(a2i, a4i);
+	b5r = vlf_sub(a2r, a4r);
+	b5i = vlf_sub(a2i, a4i);
+	c1r = vlf_add(b2r, b4r);
+	c1i = vlf_add(b2i, b4i);
+	c2r = vlf_sub(b2r, b4r);
+	c2i = vlf_sub(b2i, b4i);
+	c3r = vlf_add(b3r, b5r);
+	c3i = vlf_add(b3i, b5i);
+	c4r = vlf_sub(b3r, b5r);
+	c4i = vlf_sub(b3i, b5i);
+	d1r = vlf_mul(c1r, c0r);
+	d1i = vlf_mul(c1i, c0r);
+	d2r = vlf_mul(c2r, c0r);
+	d2i = vlf_mul(c2i, c0r);
+	d3r = vlf_mul(c3r, c0i);
+	d3i = vlf_mul(c3i, c0i);
+	d4r = vlf_mul(c4r, c0i);
+	d4i = vlf_mul(c4i, c0i);
+	b0r = vlf_add(a0r, a3r);
+	b0i = vlf_add(a0i, a3i);
+	b1r = vlf_sub(a0r, a3r);
+	b1i = vlf_sub(a0i, a3i);
+	f0r = vlf_add(b0r, c1r);
+	f0i = vlf_add(b0i, c1i);
+	e1r = vlf_sub(b0r, d1r);
+	e1i = vlf_sub(b0i, d1i);
+	f3r = vlf_sub(b1r, c2r);
+	f3i = vlf_sub(b1i, c2i);
+	e2r = vlf_add(b1r, d2r);
+	e2i = vlf_add(b1i, d2i);
+	f2r = vlf_add(e1r, d4i);
+	f2i = vlf_sub(e1i, d4r);
+	f4r = vlf_sub(e1r, d4i);
+	f4i = vlf_add(e1i, d4r);
+	f1r = vlf_add(e2r, d3i);
+	f1i = vlf_sub(e2i, d3r);
+	f5r = vlf_sub(e2r, d3i);
+	f5i = vlf_add(e2i, d3r);
+	VLF_ST2(out + 0*outoffset, f0r, f0i);
+	VLF_ST2(out + 1*outoffset, f1r, f1i);
+	VLF_ST2(out + 2*outoffset, f2r, f2i);
+	VLF_ST2(out + 3*outoffset, f3r, f3i);
+	VLF_ST2(out + 4*outoffset, f4r, f4i);
+	VLF_ST2(out + 5*outoffset, f5r, f5i);
+}
+
 static COP_ATTR_ALWAYSINLINE void fftset_vec_dif_fft8_offset_o(const float *in, float *out, unsigned outoffset)
 {
 	const vlf vec_root_half = vlf_broadcast(C_C4);
@@ -819,6 +887,7 @@ BUILD_STANDARD_PASSES(2, 2)
 BUILD_STANDARD_PASSES(3, 4)
 BUILD_STANDARD_PASSES(4, 6)
 BUILD_INNER_PASSES(5)
+BUILD_INNER_PASSES(6)
 BUILD_INNER_PASSES(8)
 BUILD_INNER_PASSES(16)
 
@@ -870,6 +939,13 @@ struct fftset_vec *fastconv_get_inner_pass(struct fftset *fc, unsigned length)
 		pass->dif            = fc_v4_r5_inner;
 		pass->dit            = fc_v4_r5_inner;
 		pass->dif_stockham   = fc_v4_stock_r5_inner;
+	} else if (length == 6) {
+		pass->twiddle        = NULL;
+		pass->lfft_div_radix = 1;
+		pass->radix          = 6;
+		pass->dif            = fc_v4_r6_inner;
+		pass->dit            = fc_v4_r6_inner;
+		pass->dif_stockham   = fc_v4_stock_r6_inner;
 	} else if (length == 8) {
 		pass->twiddle        = NULL;
 		pass->lfft_div_radix = 1;
@@ -884,22 +960,6 @@ struct fftset_vec *fastconv_get_inner_pass(struct fftset *fc, unsigned length)
 		pass->dif            = fc_v4_r16_inner;
 		pass->dit            = fc_v4_r16_inner;
 		pass->dif_stockham   = fc_v4_stock_r16_inner;
-	} else if (length % 3 == 0) {
-		float *twid = aalloc_align_alloc(&fc->memory, sizeof(float) * 4 * length / 3, 64);
-		if (twid == NULL)
-			return NULL;
-		for (i = 0; i < length / 3; i++) {
-			twid[4*i+0] = cosf(i * (-(float)M_PI * 2.0f) / length);
-			twid[4*i+1] = sinf(i * (-(float)M_PI * 2.0f) / length);
-			twid[4*i+2] = cosf(i * (-(float)M_PI * 4.0f) / length);
-			twid[4*i+3] = sinf(i * (-(float)M_PI * 4.0f) / length);
-		}
-		pass->twiddle        = twid;
-		pass->lfft_div_radix = length / 3;
-		pass->radix          = 3;
-		pass->dif            = fc_v4_dif_r3;
-		pass->dit            = fc_v4_dit_r3;
-		pass->dif_stockham   = fc_v4_stock_r3;
 	} else if (   length % 4 == 0
 			  &&  length / 4 != 8
 			  &&  length / 4 != 4
@@ -921,6 +981,22 @@ struct fftset_vec *fastconv_get_inner_pass(struct fftset *fc, unsigned length)
 		pass->dif          = fc_v4_dif_r4;
 		pass->dit          = fc_v4_dit_r4;
 		pass->dif_stockham = fc_v4_stock_r4;
+	} else if (length % 3 == 0) {
+		float *twid = aalloc_align_alloc(&fc->memory, sizeof(float) * 4 * length / 3, 64);
+		if (twid == NULL)
+			return NULL;
+		for (i = 0; i < length / 3; i++) {
+			twid[4*i+0] = cosf(i * (-(float)M_PI * 2.0f) / length);
+			twid[4*i+1] = sinf(i * (-(float)M_PI * 2.0f) / length);
+			twid[4*i+2] = cosf(i * (-(float)M_PI * 4.0f) / length);
+			twid[4*i+3] = sinf(i * (-(float)M_PI * 4.0f) / length);
+		}
+		pass->twiddle        = twid;
+		pass->lfft_div_radix = length / 3;
+		pass->radix          = 3;
+		pass->dif            = fc_v4_dif_r3;
+		pass->dit            = fc_v4_dit_r3;
+		pass->dif_stockham   = fc_v4_stock_r3;
 	} else if (length % 2 == 0) {
 		float *twid = aalloc_align_alloc(&fc->memory, sizeof(float) * length, 64);
 		if (twid == NULL)
