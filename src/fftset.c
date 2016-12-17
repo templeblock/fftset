@@ -25,6 +25,7 @@
 #include <assert.h>
 #include <math.h>
 #include <stdlib.h>
+#include <string.h>
 #include "fftset/fftset.h"
 #include "cop/cop_vec.h"
 #include "cop/cop_alloc.h"
@@ -196,16 +197,16 @@ fftset_fft_inverse
 	memcpy(work_buf, output_buf, sizeof(float) * first_pass->lfft * 2);
 }
 
-void fftset_init(struct fftset *fc)
+int fftset_init(struct fftset *fc)
 {
-	aalloc_init(&fc->memory, 33554432, 16, 64*1024);
 	fc->first_outer = NULL;
 	fc->first_inner = NULL;
+	return cop_alloc_grp_temps_init(&(fc->mem_impl), &(fc->mem), 8*1024*1024, 0, 16);
 }
 
 void fftset_destroy(struct fftset *fc)
 {
-	aalloc_free(&fc->memory);
+	cop_alloc_grp_temps_free(&(fc->mem_impl));
 }
 
 const struct fftset_fft *fftset_create_fft(struct fftset *fc, const struct fftset_modulation *modulation, unsigned complex_bins)
@@ -222,13 +223,13 @@ const struct fftset_fft *fftset_create_fft(struct fftset *fc, const struct fftse
 	}
 
 	/* Create new outer pass and insert it into the list. */
-	pass = aalloc_alloc(&fc->memory, sizeof(*pass));
+	pass = cop_alloc(&(fc->mem), sizeof(*pass), 0);
 	if (pass == NULL)
 		return NULL;
 
 	/* Create memory for twiddle coefficients. */
 	if (modulation->get_twid != NULL) {
-		pass->main_twiddle = modulation->get_twid(&fc->memory, complex_bins);
+		pass->main_twiddle = modulation->get_twid(&(fc->mem), complex_bins);
 		if (pass->main_twiddle == NULL)
 			return NULL;
 	} else {
@@ -236,7 +237,7 @@ const struct fftset_fft *fftset_create_fft(struct fftset *fc, const struct fftse
 	}
 
 	if (modulation->get_twid_reord != NULL) {
-		pass->reord_twiddle = modulation->get_twid_reord(&fc->memory, complex_bins);
+		pass->reord_twiddle = modulation->get_twid_reord(&(fc->mem), complex_bins);
 		if (pass->reord_twiddle == NULL)
 			return NULL;
 	} else {

@@ -42,8 +42,9 @@ struct fftset_fft;
  * ------------------------------------------------------------------------ */
 
 /* Initializes an fftset object which will hold all the memory required by the
- * various modulators. */
-void fftset_init(struct fftset *fc);
+ * various modulators. Returns zero on success. Returns non-zero if memory
+ * was exhausted. */
+int fftset_init(struct fftset *fc);
 
 /* Destroys an fftset. Once this function has been called, all fftset_fft
  * objects which were created using the given fftset are invalid and it is
@@ -157,11 +158,12 @@ struct fftset_vec;
 
 struct fftset {
 	/* Sorted list of all available inner vector passes. */
-	struct fftset_vec    *first_inner;
+	struct fftset_vec          *first_inner;
 	/* Sorted list of all available outer passes. */
-	struct fftset_fft    *first_outer;
+	struct fftset_fft          *first_outer;
 	/* Memory for everything! */
-	struct aalloc         memory;
+	struct cop_alloc_iface      mem;
+	struct cop_alloc_grp_temps  mem_impl;
 };
 
 #endif /* FFTSET_H */
