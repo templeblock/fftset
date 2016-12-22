@@ -162,7 +162,7 @@ struct fftset {
 	/* Sorted list of all available outer passes. */
 	struct fftset_fft          *first_outer;
 	/* Memory for everything! */
-	struct cop_alloc_iface      mem;
+	struct cop_salloc_iface     mem;
 	struct cop_alloc_grp_temps  mem_impl;
 };
 

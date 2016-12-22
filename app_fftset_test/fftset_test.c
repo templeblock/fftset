@@ -179,7 +179,7 @@ int convolution_test(struct fftset *fftset, unsigned length, float *buf1, float 
 int main(int argc, char *argv[])
 {
 	struct fftset              fftset;
-	struct cop_alloc_iface     mem;
+	struct cop_salloc_iface    mem;
 	struct cop_alloc_grp_temps mem_impl;
 	int errors = 0;
 
@@ -198,9 +198,9 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
-	tmp1 = cop_alloc(&mem, sizeof(float) * 1024, 0);
-	tmp2 = cop_alloc(&mem, sizeof(float) * 1024, 0);
-	tmp3 = cop_alloc(&mem, sizeof(float) * 1024, 0);
+	tmp1 = cop_salloc(&mem, sizeof(float) * 1024, 0);
+	tmp2 = cop_salloc(&mem, sizeof(float) * 1024, 0);
+	tmp3 = cop_salloc(&mem, sizeof(float) * 1024, 0);
 
 	if (tmp1 == NULL || tmp2 == NULL || tmp3 == NULL) {
 		cop_alloc_grp_temps_free(&mem_impl);

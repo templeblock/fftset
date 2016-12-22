@@ -26,8 +26,8 @@
 struct fftset_modulation {
 	unsigned       radix;
 
-	const float *(*get_twid_reord)(struct cop_alloc_iface *alloc, unsigned lfft_div_radix);
-	const float *(*get_twid)(struct cop_alloc_iface *alloc, unsigned lfft_div_radix);
+	const float *(*get_twid_reord)(struct cop_salloc_iface *alloc, unsigned lfft_div_radix);
+	const float *(*get_twid)(struct cop_salloc_iface *alloc, unsigned lfft_div_radix);
 
 	void         (*forward)      (float *out, const float *in, const float *twid, unsigned lfft_div_radix);
 	void         (*forward_reord)(float *out, const float *in, const float *twid, unsigned lfft_div_radix);

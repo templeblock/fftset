@@ -907,7 +907,7 @@ struct fftset_vec *fastconv_get_inner_pass(struct fftset *fc, unsigned length)
 	}
 
 	/* Create new inner pass. */
-	pass = cop_alloc(&(fc->mem), sizeof(*pass), 0);
+	pass = cop_salloc(&(fc->mem), sizeof(*pass), 0);
 	if (pass == NULL)
 		return NULL;
 
@@ -965,7 +965,7 @@ struct fftset_vec *fastconv_get_inner_pass(struct fftset *fc, unsigned length)
 			  &&  length / 4 != 8
 			  &&  length / 4 != 4
 			  ) {
-		float *twid = cop_alloc(&(fc->mem), sizeof(float) * 6 * length / 4, 64);
+		float *twid = cop_salloc(&(fc->mem), sizeof(float) * 6 * length / 4, 64);
 		if (twid == NULL)
 			return NULL;
 		for (i = 0; i < length / 4; i++) {
@@ -983,7 +983,7 @@ struct fftset_vec *fastconv_get_inner_pass(struct fftset *fc, unsigned length)
 		pass->dit          = fc_v4_dit_r4;
 		pass->dif_stockham = fc_v4_stock_r4;
 	} else if (length % 3 == 0) {
-		float *twid = cop_alloc(&(fc->mem), sizeof(float) * 4 * length / 3, 64);
+		float *twid = cop_salloc(&(fc->mem), sizeof(float) * 4 * length / 3, 64);
 		if (twid == NULL)
 			return NULL;
 		for (i = 0; i < length / 3; i++) {
@@ -999,7 +999,7 @@ struct fftset_vec *fastconv_get_inner_pass(struct fftset *fc, unsigned length)
 		pass->dit            = fc_v4_dit_r3;
 		pass->dif_stockham   = fc_v4_stock_r3;
 	} else if (length % 2 == 0) {
-		float *twid = cop_alloc(&(fc->mem), sizeof(float) * length, 64);
+		float *twid = cop_salloc(&(fc->mem), sizeof(float) * length, 64);
 		if (twid == NULL)
 			return NULL;
 		for (i = 0; i < length / 2; i++) {

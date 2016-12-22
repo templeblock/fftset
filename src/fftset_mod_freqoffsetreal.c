@@ -278,9 +278,9 @@ static void modfreqoffsetreal_inverse_reorder(float *out_buf, const float *in_bu
 	}
 }
 
-static const float *modfreqoffsetreal_get_twid(struct cop_alloc_iface *alloc, unsigned length)
+static const float *modfreqoffsetreal_get_twid(struct cop_salloc_iface *alloc, unsigned length)
 {
-	float *twid = cop_alloc(alloc, sizeof(float) * 56 * length / 16, 64);
+	float *twid = cop_salloc(alloc, sizeof(float) * 56 * length / 16, 64);
 	assert((length % 4) == 0);
 	if (twid != NULL) {
 		unsigned i;

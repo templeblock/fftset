@@ -223,7 +223,7 @@ const struct fftset_fft *fftset_create_fft(struct fftset *fc, const struct fftse
 	}
 
 	/* Create new outer pass and insert it into the list. */
-	pass = cop_alloc(&(fc->mem), sizeof(*pass), 0);
+	pass = cop_salloc(&(fc->mem), sizeof(*pass), 0);
 	if (pass == NULL)
 		return NULL;
 
