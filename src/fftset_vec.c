@@ -42,6 +42,71 @@ static const float C_S5  = 0.587785252292473f; /* PI / 5 */
 static const float C_C8  = 0.923879532511288f; /* PI / 8 */
 static const float C_S8  = 0.382683432365086f; /* PI / 8 */
 
+
+#define BUILD_INNER_PASSES(vtyp_, ctyp_, vwidth_, n_) \
+static void fftset_ ## vtyp_ ## _r ## n_ ## _inner(ctyp_ *work_buf, unsigned nfft, unsigned lfft, const ctyp_ *twid) \
+{ \
+	assert(lfft == 1); \
+	do { \
+		vtyp_ ## _dif_fft ## n_ ## _offset_o(work_buf, work_buf, 2 * vwidth_); \
+		work_buf += 2 * (n_) * vwidth_; \
+	} while (--nfft); \
+} \
+static void fftset_ ## vtyp_ ## _r ## n_ ## _inner_stock(const ctyp_ *in, ctyp_ *out, const ctyp_ *twid, unsigned ncol, unsigned nrow_div_radix) \
+{ \
+	const unsigned ioffset = (2*vwidth_)*nrow_div_radix; \
+	assert(ncol == 1); \
+	do { \
+		vtyp_ ## _dif_fft ## n_ ## _offset_o(in, out, ioffset); \
+		out += 2 * vwidth_; \
+		in  += 2 * (n_) * vwidth_; \
+	} while (--nrow_div_radix); \
+}
+
+#define BUILD_STANDARD_PASSES(vtyp_, ctyp_, vwidth_, n_, ntwid_) \
+static void fftset_ ## vtyp_ ## _r ## n_ ## _dif(ctyp_ *work_buf, unsigned nfft, unsigned lfft, const ctyp_ *twid) \
+{ \
+	unsigned rinc = lfft * (2 * vwidth_); \
+	do { \
+		unsigned j; \
+		const ctyp_ *tp = twid; \
+		for (j = 0; j < lfft; j++, work_buf += 2 * vwidth_, tp += (ntwid_)) { \
+			vtyp_ ## _dif_fft ## n_ ## _offset_io(work_buf, work_buf, tp, rinc, rinc); \
+		} \
+		work_buf += ((n_) - 1)*rinc; \
+	} while (--nfft); \
+} \
+static void fftset_ ## vtyp_ ## _r ## n_ ## _dit(ctyp_ *work_buf, unsigned nfft, unsigned lfft, const ctyp_ *twid) \
+{ \
+	unsigned rinc = lfft * (2 * vwidth_); \
+	do { \
+		unsigned j; \
+		const ctyp_ *tp = twid; \
+		for (j = 0; j < lfft; j++, work_buf += 2 * vwidth_, tp += (ntwid_)) { \
+			vtyp_ ## _dit_fft ## n_ ## _offset_io(work_buf, work_buf, tp, rinc, rinc); \
+		} \
+		work_buf += ((n_) - 1)*rinc; \
+	} while (--nfft); \
+} \
+static void fftset_ ## vtyp_ ## _r ## n_ ## _stock(const ctyp_ *in, ctyp_ *out, const ctyp_ *twid, unsigned ncol, unsigned nrow_div_radix) \
+{ \
+	const unsigned ooffset = (2*vwidth_)*ncol; \
+	const unsigned ioffset = ooffset*nrow_div_radix; \
+	do { \
+		const ctyp_ *in0 = in; \
+		const ctyp_ *tp  = twid; \
+		unsigned     j   = ncol; \
+		do { \
+			vtyp_ ## _dif_fft ## n_ ## _offset_io(in0, out, tp, ooffset, ioffset); \
+			tp   += (ntwid_); \
+			out  += (2*vwidth_); \
+			in0  += (2*vwidth_); \
+		} while (--j); \
+		in = in + (n_)*ooffset; \
+	} while (--nrow_div_radix); \
+} \
+BUILD_INNER_PASSES(vtyp_, ctyp_, vwidth_, n_)
+
 #define VECRADIX2PASSES(vtyp_, vtyp_mac_, ctyp_, vwidth_) \
 static COP_ATTR_ALWAYSINLINE void vtyp_ ## _dif_fft2_offset_io(const ctyp_ *in, ctyp_ *out, const ctyp_ *twid, unsigned in_stride, unsigned out_stride) \
 { \
@@ -101,7 +166,8 @@ static COP_ATTR_ALWAYSINLINE void vtyp_ ## _dit_fft2_offset_io(const ctyp_ *in, 
 	vtyp_ ## _st(out + 1*vwidth_, onim); \
 	vtyp_ ## _st(out + out_stride + 0*vwidth_, ofre); \
 	vtyp_ ## _st(out + out_stride + 1*vwidth_, ofim); \
-}
+} \
+BUILD_STANDARD_PASSES(vtyp_, ctyp_, vwidth_, 2, 2)
 
 #define VECRADIX3PASSES(vtyp_, vtyp_mac_, ctyp_, vwidth_) \
 static COP_ATTR_ALWAYSINLINE void vtyp_ ## _dif_fft3_offset_io(const ctyp_ *in, ctyp_ *out, const ctyp_ *twid, unsigned in_stride, unsigned out_stride) \
@@ -239,7 +305,8 @@ static COP_ATTR_ALWAYSINLINE void vtyp_ ## _dit_fft3_offset_io(const ctyp_ *in, 
 	vtyp_mac_ ## _ST2(out + 0*out_stride, or0, oi0); \
 	vtyp_mac_ ## _ST2(out + 1*out_stride, or1, oi1); \
 	vtyp_mac_ ## _ST2(out + 2*out_stride, or2, oi2); \
-}
+} \
+BUILD_STANDARD_PASSES(vtyp_, ctyp_, vwidth_, 3, 4)
 
 #define VECRADIX4PASSES(vtyp_, vtyp_mac_, ctyp_, vwidth_) \
 static COP_ATTR_ALWAYSINLINE void vtyp_ ## _dif_fft4_offset_io(const ctyp_ *in, ctyp_ *out, const ctyp_ *twid, unsigned in_stride, unsigned out_stride) \
@@ -389,7 +456,8 @@ static COP_ATTR_ALWAYSINLINE void vtyp_ ## _dit_fft4_offset_io(const ctyp_ *in, 
 	vtyp_ ## _st(out + 2*out_stride + 1*vwidth_, o2i); \
 	vtyp_ ## _st(out + 3*out_stride + 0*vwidth_, o3r); \
 	vtyp_ ## _st(out + 3*out_stride + 1*vwidth_, o3i); \
-}
+} \
+BUILD_STANDARD_PASSES(vtyp_, ctyp_, vwidth_, 4, 6)
 
 #define VECRADIX5PASSES(vtyp_, vtyp_mac_, ctyp_, vwidth_) \
 static COP_ATTR_ALWAYSINLINE void vtyp_ ## _dif_fft5_offset_o(const ctyp_ *in, ctyp_ *out, unsigned outoffset) \
@@ -463,7 +531,8 @@ static COP_ATTR_ALWAYSINLINE void vtyp_ ## _dif_fft5_offset_o(const ctyp_ *in, c
 	vtyp_mac_ ## _ST2(out + 2*outoffset, y2r, y2i); \
 	vtyp_mac_ ## _ST2(out + 3*outoffset, y3r, y3i); \
 	vtyp_mac_ ## _ST2(out + 4*outoffset, y4r, y4i); \
-}
+} \
+BUILD_INNER_PASSES(vtyp_, ctyp_, vwidth_, 5)
 
 #define VECRADIX6PASSES(vtyp_, vtyp_mac_, ctyp_, vwidth_) \
 static COP_ATTR_ALWAYSINLINE void vtyp_ ## _dif_fft6_offset_o(const ctyp_ *in, ctyp_ *out, unsigned outoffset) \
@@ -532,7 +601,8 @@ static COP_ATTR_ALWAYSINLINE void vtyp_ ## _dif_fft6_offset_o(const ctyp_ *in, c
 	vtyp_mac_ ## _ST2(out + 3*outoffset, f3r, f3i); \
 	vtyp_mac_ ## _ST2(out + 4*outoffset, f4r, f4i); \
 	vtyp_mac_ ## _ST2(out + 5*outoffset, f5r, f5i); \
-}
+} \
+BUILD_INNER_PASSES(vtyp_, ctyp_, vwidth_, 6)
 
 #define VECRADIX8PASSES(vtyp_, vtyp_mac_, ctyp_, vwidth_) \
 static COP_ATTR_ALWAYSINLINE void vtyp_ ## _dif_fft8_offset_o(const ctyp_ *in, ctyp_ *out, unsigned outoffset) \
@@ -615,7 +685,8 @@ static COP_ATTR_ALWAYSINLINE void vtyp_ ## _dif_fft8_offset_o(const ctyp_ *in, c
 	vtyp_mac_ ## _ST2(out + 5*outoffset, d5r, d5i); \
 	vtyp_mac_ ## _ST2(out + 6*outoffset, d6r, d6i); \
 	vtyp_mac_ ## _ST2(out + 7*outoffset, d7r, d7i); \
-}
+} \
+BUILD_INNER_PASSES(vtyp_, ctyp_, vwidth_, 8)
 
 #define VECRADIX16PASSES(vtyp_, vtyp_mac_, ctyp_, vwidth_) \
 static COP_ATTR_ALWAYSINLINE void vtyp_ ## _dif_fft16_offset_o(const ctyp_ *in, ctyp_ *out, unsigned outoffset) \
@@ -771,71 +842,8 @@ static COP_ATTR_ALWAYSINLINE void vtyp_ ## _dif_fft16_offset_o(const ctyp_ *in, 
 	vtyp_ ## _dif_fft4_offset_o(stack + 16*vwidth_, out + 2*outoffset, 4*outoffset); \
 	vtyp_mac_ ## _ST2(stack + 30*vwidth_, e3r, e3i); \
 	vtyp_ ## _dif_fft4_offset_o(stack + 24*vwidth_, out + 3*outoffset, 4*outoffset); \
-}
-
-#define BUILD_INNER_PASSES(vtyp_, ctyp_, vwidth_, n_) \
-static void fftset_ ## vtyp_ ## _r ## n_ ## _inner(ctyp_ *work_buf, unsigned nfft, unsigned lfft, const ctyp_ *twid) \
-{ \
-	assert(lfft == 1); \
-	do { \
-		vtyp_ ## _dif_fft ## n_ ## _offset_o(work_buf, work_buf, 2 * vwidth_); \
-		work_buf += 2 * (n_) * vwidth_; \
-	} while (--nfft); \
 } \
-static void fftset_ ## vtyp_ ## _r ## n_ ## _inner_stock(const ctyp_ *in, ctyp_ *out, const ctyp_ *twid, unsigned ncol, unsigned nrow_div_radix) \
-{ \
-	const unsigned ioffset = (2*vwidth_)*nrow_div_radix; \
-	assert(ncol == 1); \
-	do { \
-		vtyp_ ## _dif_fft ## n_ ## _offset_o(in, out, ioffset); \
-		out += 2 * vwidth_; \
-		in  += 2 * (n_) * vwidth_; \
-	} while (--nrow_div_radix); \
-}
-
-#define BUILD_STANDARD_PASSES(vtyp_, ctyp_, vwidth_, n_, ntwid_) \
-static void fftset_ ## vtyp_ ## _r ## n_ ## _dif(ctyp_ *work_buf, unsigned nfft, unsigned lfft, const ctyp_ *twid) \
-{ \
-	unsigned rinc = lfft * (2 * vwidth_); \
-	do { \
-		unsigned j; \
-		const ctyp_ *tp = twid; \
-		for (j = 0; j < lfft; j++, work_buf += 2 * vwidth_, tp += (ntwid_)) { \
-			vtyp_ ## _dif_fft ## n_ ## _offset_io(work_buf, work_buf, tp, rinc, rinc); \
-		} \
-		work_buf += ((n_) - 1)*rinc; \
-	} while (--nfft); \
-} \
-static void fftset_ ## vtyp_ ## _r ## n_ ## _dit(ctyp_ *work_buf, unsigned nfft, unsigned lfft, const ctyp_ *twid) \
-{ \
-	unsigned rinc = lfft * (2 * vwidth_); \
-	do { \
-		unsigned j; \
-		const ctyp_ *tp = twid; \
-		for (j = 0; j < lfft; j++, work_buf += 2 * vwidth_, tp += (ntwid_)) { \
-			vtyp_ ## _dit_fft ## n_ ## _offset_io(work_buf, work_buf, tp, rinc, rinc); \
-		} \
-		work_buf += ((n_) - 1)*rinc; \
-	} while (--nfft); \
-} \
-static void fftset_ ## vtyp_ ## _r ## n_ ## _stock(const ctyp_ *in, ctyp_ *out, const ctyp_ *twid, unsigned ncol, unsigned nrow_div_radix) \
-{ \
-	const unsigned ooffset = (2*vwidth_)*ncol; \
-	const unsigned ioffset = ooffset*nrow_div_radix; \
-	do { \
-		const ctyp_ *in0 = in; \
-		const ctyp_ *tp  = twid; \
-		unsigned     j   = ncol; \
-		do { \
-			vtyp_ ## _dif_fft ## n_ ## _offset_io(in0, out, tp, ooffset, ioffset); \
-			tp   += (ntwid_); \
-			out  += (2*vwidth_); \
-			in0  += (2*vwidth_); \
-		} while (--j); \
-		in = in + (n_)*ooffset; \
-	} while (--nrow_div_radix); \
-} \
-BUILD_INNER_PASSES(vtyp_, ctyp_, vwidth_, n_)
+BUILD_INNER_PASSES(vtyp_, ctyp_, vwidth_, 16)
 
 #if 0
 VECRADIX2PASSES(v1f, V1F, float, 1)
@@ -845,13 +853,6 @@ VECRADIX5PASSES(v1f, V1F, float, 1)
 VECRADIX6PASSES(v1f, V1F, float, 1)
 VECRADIX8PASSES(v1f, V1F, float, 1)
 VECRADIX16PASSES(v1f, V1F, float, 1)
-BUILD_STANDARD_PASSES(v1f, float, 1, 2, 2)
-BUILD_STANDARD_PASSES(v1f, float, 1, 3, 4)
-BUILD_STANDARD_PASSES(v1f, float, 1, 4, 6)
-BUILD_INNER_PASSES(v1f, float, 1, 5)
-BUILD_INNER_PASSES(v1f, float, 1, 6)
-BUILD_INNER_PASSES(v1f, float, 1, 8)
-BUILD_INNER_PASSES(v1f, float, 1, 16)
 
 VECRADIX2PASSES(v1d, V1D, double, 1)
 VECRADIX3PASSES(v1d, V1D, double, 1)
@@ -860,13 +861,6 @@ VECRADIX5PASSES(v1d, V1D, double, 1)
 VECRADIX6PASSES(v1d, V1D, double, 1)
 VECRADIX8PASSES(v1d, V1D, double, 1)
 VECRADIX16PASSES(v1d, V1D, double, 1)
-BUILD_STANDARD_PASSES(v1d, double, 1, 2, 2)
-BUILD_STANDARD_PASSES(v1d, double, 1, 3, 4)
-BUILD_STANDARD_PASSES(v1d, double, 1, 4, 6)
-BUILD_INNER_PASSES(v1d, double, 1, 5)
-BUILD_INNER_PASSES(v1d, double, 1, 6)
-BUILD_INNER_PASSES(v1d, double, 1, 8)
-BUILD_INNER_PASSES(v1d, double, 1, 16)
 #endif
 
 #if V4F_EXISTS
@@ -877,13 +871,6 @@ VECRADIX5PASSES(v4f, V4F, float, 4)
 VECRADIX6PASSES(v4f, V4F, float, 4)
 VECRADIX8PASSES(v4f, V4F, float, 4)
 VECRADIX16PASSES(v4f, V4F, float, 4)
-BUILD_STANDARD_PASSES(v4f, float, 4, 2, 2)
-BUILD_STANDARD_PASSES(v4f, float, 4, 3, 4)
-BUILD_STANDARD_PASSES(v4f, float, 4, 4, 6)
-BUILD_INNER_PASSES(v4f, float, 4, 5)
-BUILD_INNER_PASSES(v4f, float, 4, 6)
-BUILD_INNER_PASSES(v4f, float, 4, 8)
-BUILD_INNER_PASSES(v4f, float, 4, 16)
 #endif
 
 #if 0
