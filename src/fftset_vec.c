@@ -42,7 +42,6 @@ static const float C_S5  = 0.587785252292473f; /* PI / 5 */
 static const float C_C8  = 0.923879532511288f; /* PI / 8 */
 static const float C_S8  = 0.382683432365086f; /* PI / 8 */
 
-
 #define BUILD_INNER_PASSES(vtyp_, ctyp_, vwidth_, n_) \
 static void fftset_ ## vtyp_ ## _r ## n_ ## _inner(ctyp_ *work_buf, unsigned nfft, unsigned lfft, const ctyp_ *twid) \
 { \
@@ -845,7 +844,7 @@ static COP_ATTR_ALWAYSINLINE void vtyp_ ## _dif_fft16_offset_o(const ctyp_ *in, 
 } \
 BUILD_INNER_PASSES(vtyp_, ctyp_, vwidth_, 16)
 
-#if 0
+#if 1
 VECRADIX2PASSES(v1f, V1F, float, 1)
 VECRADIX3PASSES(v1f, V1F, float, 1)
 VECRADIX4PASSES(v1f, V1F, float, 1)
@@ -853,7 +852,9 @@ VECRADIX5PASSES(v1f, V1F, float, 1)
 VECRADIX6PASSES(v1f, V1F, float, 1)
 VECRADIX8PASSES(v1f, V1F, float, 1)
 VECRADIX16PASSES(v1f, V1F, float, 1)
+#endif
 
+#if 0
 VECRADIX2PASSES(v1d, V1D, double, 1)
 VECRADIX3PASSES(v1d, V1D, double, 1)
 VECRADIX4PASSES(v1d, V1D, double, 1)
@@ -873,6 +874,82 @@ VECRADIX8PASSES(v4f, V4F, float, 4)
 VECRADIX16PASSES(v4f, V4F, float, 4)
 #endif
 
+#if V8F_EXISTS
+VECRADIX2PASSES(v8f, V8F, float, 8)
+VECRADIX3PASSES(v8f, V8F, float, 8)
+VECRADIX4PASSES(v8f, V8F, float, 8)
+VECRADIX5PASSES(v8f, V8F, float, 8)
+VECRADIX6PASSES(v8f, V8F, float, 8)
+VECRADIX8PASSES(v8f, V8F, float, 8)
+VECRADIX16PASSES(v8f, V8F, float, 8)
+#endif
+
+struct float_pass_radix {
+	unsigned   radix;
+	unsigned   fito_vec_len;
+	unsigned   foti_vec_len;
+
+	void     (*inner)(float *work, unsigned nfft, unsigned lfft, const float *twid);
+	void     (*inner_stock)(const float *in, float *out, const float *twid, unsigned ncol, unsigned nrow_div_radix);
+	void     (*dif)(float *work, unsigned nfft, unsigned lfft, const float *twid);
+	void     (*dit)(float *work, unsigned nfft, unsigned lfft, const float *twid);
+	void     (*stock)(const float *in, float *out, const float *twid, unsigned ncol, unsigned nrow_div_radix);
+};
+
+
+#define SENTINAL_PASS {0, 0, 0, NULL, NULL, NULL, NULL, NULL}
+#define FLOAT_PASS_EVERY(vtyp_, radix_, vwidth_, foti_width_) \
+{   radix_ \
+,   vwidth_ \
+,   foti_width_ \
+,   fftset_ ## vtyp_ ## _r ## radix_ ## _inner \
+,   fftset_ ## vtyp_ ## _r ## radix_ ## _inner_stock \
+,   fftset_ ## vtyp_ ## _r ## radix_ ## _dif \
+,   fftset_ ## vtyp_ ## _r ## radix_ ## _dit \
+,   fftset_ ## vtyp_ ## _r ## radix_ ## _stock \
+}
+#define FLOAT_PASS_INNER(vtyp_, radix_, vwidth_, foti_width_) \
+{   radix_ \
+,   vwidth_ \
+,   foti_width_ \
+,   fftset_ ## vtyp_ ## _r ## radix_ ## _inner \
+,   fftset_ ## vtyp_ ## _r ## radix_ ## _inner_stock \
+,   NULL \
+,   NULL \
+,   NULL \
+}
+
+/* This list must be sorted by fito_vec_len. */
+const struct float_pass_radix FFTSET_FLOAT_PASSES[] =
+{FLOAT_PASS_EVERY(v1f, 2,  1, 1)
+,FLOAT_PASS_EVERY(v1f, 3,  1, 1)
+,FLOAT_PASS_EVERY(v1f, 4,  1, 1)
+,FLOAT_PASS_INNER(v1f, 5,  1, 1)
+,FLOAT_PASS_INNER(v1f, 6,  1, 1)
+,FLOAT_PASS_INNER(v1f, 8,  1, 1)
+,FLOAT_PASS_INNER(v1f, 16, 1, 1)
+#if V4F_EXISTS
+,FLOAT_PASS_EVERY(v4f, 2,  4, 4)
+,FLOAT_PASS_EVERY(v4f, 3,  4, 4)
+,FLOAT_PASS_EVERY(v4f, 4,  4, 4)
+,FLOAT_PASS_INNER(v4f, 5,  4, 4)
+,FLOAT_PASS_INNER(v4f, 6,  4, 4)
+,FLOAT_PASS_INNER(v4f, 8,  4, 4)
+,FLOAT_PASS_INNER(v4f, 16, 4, 4)
+#endif
+#if V8F_EXISTS
+,FLOAT_PASS_EVERY(v8f, 2,  8, 8)
+,FLOAT_PASS_EVERY(v8f, 3,  8, 8)
+,FLOAT_PASS_EVERY(v8f, 4,  8, 8)
+,FLOAT_PASS_INNER(v8f, 5,  8, 8)
+,FLOAT_PASS_INNER(v8f, 6,  8, 8)
+,FLOAT_PASS_INNER(v8f, 8,  8, 8)
+,FLOAT_PASS_INNER(v8f, 16, 8, 8)
+#endif
+,SENTINAL_PASS
+};
+
+
 #if 0
 #if V2D_EXISTS
 VECRADIX2PASSES(v2d, V2D, double, 2)
@@ -890,6 +967,7 @@ VECRADIX3PASSES(v8f, V8F, float,  8)
 VECRADIX4PASSES(v8f, V8F, float,  8)
 #endif
 #endif
+
 
 
 struct fftset_vec *fastconv_get_inner_pass(struct fftset *fc, unsigned length)

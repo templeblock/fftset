@@ -27,9 +27,11 @@
 #include <assert.h>
 #include <math.h>
 
-#if VLF_WIDTH != 4
-#error "this implementation requires VLF_WIDTH to be 4 at the moment"
+#ifndef V4F_EXISTS
+#error "this implementation requires a v4f type"
 #endif
+
+#define VEC_V4F_WIDTH (4)
 
 static void modfreqoffsetreal_forward_first(float *vec_output, const float *input, const float *coefs, unsigned fft_len)
 {
@@ -289,21 +291,21 @@ static const float *modfreqoffsetreal_get_twid(struct cop_salloc_iface *alloc, u
 
 		for (i = 0; i < length / 4; i++) {
 			float  fi        = i*scale;
-			float *tp        = twid + ((i % VLF_WIDTH) + (i / VLF_WIDTH)*14*VLF_WIDTH);
-			tp[0*VLF_WIDTH]  = cosf(fi+(0.0f*off));
-			tp[1*VLF_WIDTH]  = sinf(fi+(0.0f*off));
-			tp[2*VLF_WIDTH]  = cosf(fi+(1.0f*off));
-			tp[3*VLF_WIDTH]  = sinf(fi+(1.0f*off));
-			tp[4*VLF_WIDTH]  = cosf(fi+(2.0f*off));
-			tp[5*VLF_WIDTH]  = sinf(fi+(2.0f*off));
-			tp[6*VLF_WIDTH]  = cosf(fi+(3.0f*off));
-			tp[7*VLF_WIDTH]  = sinf(fi+(3.0f*off));
-			tp[8*VLF_WIDTH]  = cosf(fi * 4.0f * 1.0f);
-			tp[9*VLF_WIDTH]  = sinf(fi * 4.0f * 1.0f);
-			tp[10*VLF_WIDTH] = cosf(fi * 4.0f * 2.0f);
-			tp[11*VLF_WIDTH] = sinf(fi * 4.0f * 2.0f);
-			tp[12*VLF_WIDTH] = cosf(fi * 4.0f * 3.0f);
-			tp[13*VLF_WIDTH] = sinf(fi * 4.0f * 3.0f);
+			float *tp        = twid + ((i % VEC_V4F_WIDTH) + (i / VEC_V4F_WIDTH)*14*VEC_V4F_WIDTH);
+			tp[0*VEC_V4F_WIDTH]  = cosf(fi+(0.0f*off));
+			tp[1*VEC_V4F_WIDTH]  = sinf(fi+(0.0f*off));
+			tp[2*VEC_V4F_WIDTH]  = cosf(fi+(1.0f*off));
+			tp[3*VEC_V4F_WIDTH]  = sinf(fi+(1.0f*off));
+			tp[4*VEC_V4F_WIDTH]  = cosf(fi+(2.0f*off));
+			tp[5*VEC_V4F_WIDTH]  = sinf(fi+(2.0f*off));
+			tp[6*VEC_V4F_WIDTH]  = cosf(fi+(3.0f*off));
+			tp[7*VEC_V4F_WIDTH]  = sinf(fi+(3.0f*off));
+			tp[8*VEC_V4F_WIDTH]  = cosf(fi * 4.0f * 1.0f);
+			tp[9*VEC_V4F_WIDTH]  = sinf(fi * 4.0f * 1.0f);
+			tp[10*VEC_V4F_WIDTH] = cosf(fi * 4.0f * 2.0f);
+			tp[11*VEC_V4F_WIDTH] = sinf(fi * 4.0f * 2.0f);
+			tp[12*VEC_V4F_WIDTH] = cosf(fi * 4.0f * 3.0f);
+			tp[13*VEC_V4F_WIDTH] = sinf(fi * 4.0f * 3.0f);
 		}
 	}
 	return twid;

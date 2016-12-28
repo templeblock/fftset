@@ -32,8 +32,12 @@
 #include "fftset_modulation.h"
 #include "fftset_vec.h"
 
-#if VLF_WIDTH != 4
-#error "this implementation requires VLF_WIDTH to be 4 at the moment"
+/* To be removed when the vector FFT defines the correct function for
+ * performing convolution - currently this code uses a v4f for the
+ * inner FFT multiplication which will be wrong when AVX inner passes start
+ * happening. */
+#ifndef V4F_EXISTS
+#error "this implementation requires a v4f type"
 #endif
 
 struct fftset_fft {
@@ -68,6 +72,8 @@ struct fftset_fft {
 #define FASTCONV_REAL_LEN_MULTIPLE (32)
 #define FASTCONV_MAX_PASSES        (24)
 
+#define VEC_V4F_WIDTH (4) /* To be deleted. */
+
 void
 fftset_fft_conv_get_kernel
 	(const struct fftset_fft    *first_pass
@@ -76,7 +82,7 @@ fftset_fft_conv_get_kernel
 	)
 {
 	const struct fftset_vec *vec_pass;
-	unsigned nfft = first_pass->radix / VLF_WIDTH;
+	unsigned nfft = first_pass->radix / VEC_V4F_WIDTH;
 
 	first_pass->forward(output_buf, input_buf, first_pass->main_twiddle, first_pass->lfft);
 
@@ -98,7 +104,7 @@ fftset_fft_conv
 	const struct fftset_vec *pass_stack[FASTCONV_MAX_PASSES];
 	const struct fftset_vec *vec_pass;
 	unsigned si = 0;
-	unsigned nfft = first_pass->radix / VLF_WIDTH;
+	unsigned nfft = first_pass->radix / VEC_V4F_WIDTH;
 	unsigned i;
 
 	first_pass->forward(work_buf, input_buf, first_pass->main_twiddle, first_pass->lfft);
@@ -111,18 +117,18 @@ fftset_fft_conv
 	}
 
 	for (i = 0; i < nfft; i++) {
-		vlf dr =         vlf_ld(work_buf   + VLF_WIDTH*2*i+0);
-		vlf di = vlf_neg(vlf_ld(work_buf   + VLF_WIDTH*2*i+VLF_WIDTH));
-		vlf cr =         vlf_ld(kernel_buf + VLF_WIDTH*2*i+0);
-		vlf ci =         vlf_ld(kernel_buf + VLF_WIDTH*2*i+VLF_WIDTH);
-		vlf ra = vlf_mul(dr, cr);
-		vlf rb = vlf_mul(di, ci);
-		vlf ia = vlf_mul(di, cr);
-		vlf ib = vlf_mul(dr, ci);
-		vlf ro = vlf_add(ra, rb);
-		vlf io = vlf_sub(ia, ib);
-		vlf_st(work_buf + VLF_WIDTH*2*i + 0, ro);
-		vlf_st(work_buf + VLF_WIDTH*2*i + VLF_WIDTH, io);
+		v4f dr =         v4f_ld(work_buf   + VEC_V4F_WIDTH*2*i+0);
+		v4f di = v4f_neg(v4f_ld(work_buf   + VEC_V4F_WIDTH*2*i+VEC_V4F_WIDTH));
+		v4f cr =         v4f_ld(kernel_buf + VEC_V4F_WIDTH*2*i+0);
+		v4f ci =         v4f_ld(kernel_buf + VEC_V4F_WIDTH*2*i+VEC_V4F_WIDTH);
+		v4f ra = v4f_mul(dr, cr);
+		v4f rb = v4f_mul(di, ci);
+		v4f ia = v4f_mul(di, cr);
+		v4f ib = v4f_mul(dr, ci);
+		v4f ro = v4f_add(ra, rb);
+		v4f io = v4f_sub(ia, ib);
+		v4f_st(work_buf + VEC_V4F_WIDTH*2*i + 0, ro);
+		v4f_st(work_buf + VEC_V4F_WIDTH*2*i + VEC_V4F_WIDTH, io);
 	}
 
 	while (si--) {
@@ -144,7 +150,7 @@ fftset_fft_forward
 	)
 {
 	const struct fftset_vec *vec_pass;
-	unsigned nfft = first_pass->radix / VLF_WIDTH;
+	unsigned nfft = first_pass->radix / VEC_V4F_WIDTH;
 
 	first_pass->forward(work_buf, input_buf, first_pass->main_twiddle, first_pass->lfft);
 	
@@ -175,7 +181,7 @@ fftset_fft_inverse
 	)
 {
 	const struct fftset_vec *vec_pass;
-	unsigned nfft = first_pass->radix / VLF_WIDTH;
+	unsigned nfft = first_pass->radix / VEC_V4F_WIDTH;
 
 	first_pass->reverse_reord(work_buf, input_buf, first_pass->reord_twiddle, first_pass->lfft);
 

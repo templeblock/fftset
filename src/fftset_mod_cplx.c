@@ -27,8 +27,8 @@
 #include <assert.h>
 #include <math.h>
 
-#if VLF_WIDTH != 4
-#error "this implementation requires VLF_WIDTH to be 4 at the moment"
+#ifndef V4F_EXISTS
+#error "this implementation requires a v4f type"
 #endif
 
 static void modcplx_forward_first(float *vec_output, const float *input, const float *coefs, unsigned fft_len)
