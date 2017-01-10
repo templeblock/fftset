@@ -844,7 +844,6 @@ static COP_ATTR_ALWAYSINLINE void vtyp_ ## _dif_fft16_offset_o(const ctyp_ *in, 
 } \
 BUILD_INNER_PASSES(vtyp_, ctyp_, vwidth_, 16)
 
-#if 1
 VECRADIX2PASSES(v1f, V1F, float, 1)
 VECRADIX3PASSES(v1f, V1F, float, 1)
 VECRADIX4PASSES(v1f, V1F, float, 1)
@@ -852,6 +851,23 @@ VECRADIX5PASSES(v1f, V1F, float, 1)
 VECRADIX6PASSES(v1f, V1F, float, 1)
 VECRADIX8PASSES(v1f, V1F, float, 1)
 VECRADIX16PASSES(v1f, V1F, float, 1)
+#if V4F_EXISTS
+VECRADIX2PASSES(v4f, V4F, float, 4)
+VECRADIX3PASSES(v4f, V4F, float, 4)
+VECRADIX4PASSES(v4f, V4F, float, 4)
+VECRADIX5PASSES(v4f, V4F, float, 4)
+VECRADIX6PASSES(v4f, V4F, float, 4)
+VECRADIX8PASSES(v4f, V4F, float, 4)
+VECRADIX16PASSES(v4f, V4F, float, 4)
+#endif
+#if V8F_EXISTS
+VECRADIX2PASSES(v8f, V8F, float, 8)
+VECRADIX3PASSES(v8f, V8F, float, 8)
+VECRADIX4PASSES(v8f, V8F, float, 8)
+VECRADIX5PASSES(v8f, V8F, float, 8)
+VECRADIX6PASSES(v8f, V8F, float, 8)
+VECRADIX8PASSES(v8f, V8F, float, 8)
+VECRADIX16PASSES(v8f, V8F, float, 8)
 #endif
 
 #if 0
@@ -862,26 +878,6 @@ VECRADIX5PASSES(v1d, V1D, double, 1)
 VECRADIX6PASSES(v1d, V1D, double, 1)
 VECRADIX8PASSES(v1d, V1D, double, 1)
 VECRADIX16PASSES(v1d, V1D, double, 1)
-#endif
-
-#if V4F_EXISTS
-VECRADIX2PASSES(v4f, V4F, float, 4)
-VECRADIX3PASSES(v4f, V4F, float, 4)
-VECRADIX4PASSES(v4f, V4F, float, 4)
-VECRADIX5PASSES(v4f, V4F, float, 4)
-VECRADIX6PASSES(v4f, V4F, float, 4)
-VECRADIX8PASSES(v4f, V4F, float, 4)
-VECRADIX16PASSES(v4f, V4F, float, 4)
-#endif
-
-#if V8F_EXISTS
-VECRADIX2PASSES(v8f, V8F, float, 8)
-VECRADIX3PASSES(v8f, V8F, float, 8)
-VECRADIX4PASSES(v8f, V8F, float, 8)
-VECRADIX5PASSES(v8f, V8F, float, 8)
-VECRADIX6PASSES(v8f, V8F, float, 8)
-VECRADIX8PASSES(v8f, V8F, float, 8)
-VECRADIX16PASSES(v8f, V8F, float, 8)
 #endif
 
 struct float_pass_radix {
@@ -949,168 +945,173 @@ const struct float_pass_radix FFTSET_FLOAT_PASSES[] =
 ,SENTINAL_PASS
 };
 
+#define NB_PASSES (sizeof(FFTSET_FLOAT_PASSES) / sizeof(FFTSET_FLOAT_PASSES[0]))
 
-#if 0
-#if V2D_EXISTS
-VECRADIX2PASSES(v2d, V2D, double, 2)
-VECRADIX3PASSES(v2d, V2D, double, 2)
-VECRADIX4PASSES(v2d, V2D, double, 2)
-VECRADIX5PASSES(v2d, V2D, double, 2)
-VECRADIX6PASSES(v2d, V2D, double, 2)
-VECRADIX8PASSES(v2d, V2D, double, 2)
-VECRADIX16PASSES(v2d, V2D, double, 2)
-#endif
+struct fft_graph_node {
+	/* Number of vector FFTs that will be executed in this pass. */
+	unsigned                 nb_vec;
 
-#if V8F_EXISTS
-VECRADIX2PASSES(v8f, V8F, float,  8)
-VECRADIX3PASSES(v8f, V8F, float,  8)
-VECRADIX4PASSES(v8f, V8F, float,  8)
-#endif
-#endif
+	/* The length of the vector FFTs. */
+	unsigned                 length;
 
+	/* The pass definition. */
+	struct float_pass_radix *pass;
 
+	/* So the total number of input elements to the transform will be
+	 *   pass->vwidth * nb_vec * length */
+	unsigned                 cost; /* zero indicates the cost is not set. */
+};
 
-struct fftset_vec *fastconv_get_inner_pass(struct fftset *fc, unsigned length)
+int
+build_float_graph
+	(struct fft_graph_node   *best
+	,unsigned                 vec_len
+	,unsigned                 nb_fft
+	,unsigned                 length
+	)
 {
-	struct fftset_vec *pass;
-	struct fftset_vec **ipos;
 	unsigned i;
 
-	/* Search for the pass. */
+	assert(length > 1);
+
+	best->cost = 0;
+
+	for (i = 0; i < NB_PASSES; i++) {
+		if (vec_len != FFTSET_FLOAT_PASSES[i].fito_vec_len)
+			continue;
+
+		unsigned cost         = 100 + ((FFTSET_FLOAT_PASSES[i].radix + 2) * (FFTSET_FLOAT_PASSES[i].foti_vec_len + 3) * 10000) / (FFTSET_FLOAT_PASSES[i].radix * FFTSET_FLOAT_PASSES[i].foti_vec_len);
+
+		if (length == FFTSET_FLOAT_PASSES[i].radix) {
+			if (best->cost == 0 || best->cost > cost) {
+				best->cost   = cost;
+				best->nb_vec = nb_fft;
+				best->length = length;
+				best->pass   = FFTSET_FLOAT_PASSES + i;
+			}
+			continue;
+		}
+
+		if ((FFTSET_FLOAT_PASSES[i].dif == NULL) || (length % FFTSET_FLOAT_PASSES[i].radix))
+			continue;
+
+		unsigned next_length  = length / FFTSET_FLOAT_PASSES[i].radix;
+		unsigned next_vec_len = FFTSET_FLOAT_PASSES[i].foti_vec_len;
+		unsigned next_nb_fft  = nb_fft * (FFTSET_FLOAT_PASSES[i].radix * FFTSET_FLOAT_PASSES[i].fito_vec_len) / FFTSET_FLOAT_PASSES[i].foti_vec_len;
+		struct fft_graph_node nexts[32];
+
+		if (!build_float_graph(nexts, next_vec_len, next_nb_fft, next_length))
+			continue;
+
+		if (best->cost == 0 || best->cost > nexts[0].cost + cost) {
+			unsigned j;
+			best->cost   = nexts[0].cost + cost;
+			best->nb_vec = nb_fft;
+			best->length = length;
+			best->pass   = FFTSET_FLOAT_PASSES + i;
+			
+			for (j = 0; j < 32; j++) {
+				best[j+1] = nexts[j];
+				if (nexts[j].length == nexts[j].pass->radix)
+					break;
+			}
+		}
+	}
+
+	return best->cost != 0;
+}
+
+#include <stdio.h>
+
+static struct fftset_vec *fastconv_find_pass(struct fftset *fc, unsigned length)
+{
+	struct fftset_vec *pass;
 	for (pass = fc->first_inner; pass != NULL; pass = pass->next) {
 		if (pass->lfft_div_radix*pass->radix == length && pass->dif != NULL)
 			return pass;
 		if (pass->lfft_div_radix*pass->radix < length)
 			break;
 	}
+	return NULL;
+}
+
+static struct fftset_vec *fastconv_add_passes(struct fftset *fc, struct fft_graph_node *passes)
+{
+	unsigned            pass_radix  = passes->pass->radix;
+	unsigned            pass_length = passes->length;
+	struct fftset_vec  *pass;
+	struct fftset_vec **ipos;
 
 	/* Create new inner pass. */
 	pass = cop_salloc(&(fc->mem), sizeof(*pass), 0);
 	if (pass == NULL)
 		return NULL;
 
-	/* Detect radix. */
-	if (length == 2) {
+	if (pass_length == pass_radix) {
 		pass->twiddle        = NULL;
 		pass->lfft_div_radix = 1;
-		pass->radix          = 2;
-		pass->dif            = fftset_v4f_r2_inner;
-		pass->dit            = fftset_v4f_r2_inner;
-		pass->dif_stockham   = fftset_v4f_r2_inner_stock;
-	} else if (length == 3) {
-		pass->twiddle        = NULL;
-		pass->lfft_div_radix = 1;
-		pass->radix          = 3;
-		pass->dif            = fftset_v4f_r3_inner;
-		pass->dit            = fftset_v4f_r3_inner;
-		pass->dif_stockham   = fftset_v4f_r3_inner_stock;
-	} else if (length == 4) {
-		pass->twiddle        = NULL;
-		pass->lfft_div_radix = 1;
-		pass->radix          = 4;
-		pass->dif            = fftset_v4f_r4_inner;
-		pass->dit            = fftset_v4f_r4_inner;
-		pass->dif_stockham   = fftset_v4f_r4_inner_stock;
-	} else if (length == 5) {
-		pass->twiddle        = NULL;
-		pass->lfft_div_radix = 1;
-		pass->radix          = 5;
-		pass->dif            = fftset_v4f_r5_inner;
-		pass->dit            = fftset_v4f_r5_inner;
-		pass->dif_stockham   = fftset_v4f_r5_inner_stock;
-	} else if (length == 6) {
-		pass->twiddle        = NULL;
-		pass->lfft_div_radix = 1;
-		pass->radix          = 6;
-		pass->dif            = fftset_v4f_r6_inner;
-		pass->dit            = fftset_v4f_r6_inner;
-		pass->dif_stockham   = fftset_v4f_r6_inner_stock;
-	} else if (length == 8) {
-		pass->twiddle        = NULL;
-		pass->lfft_div_radix = 1;
-		pass->radix          = 8;
-		pass->dif            = fftset_v4f_r8_inner;
-		pass->dit            = fftset_v4f_r8_inner;
-		pass->dif_stockham   = fftset_v4f_r8_inner_stock;
-	} else if (length == 16) {
-		pass->twiddle        = NULL;
-		pass->lfft_div_radix = 1;
-		pass->radix          = 16;
-		pass->dif            = fftset_v4f_r16_inner;
-		pass->dit            = fftset_v4f_r16_inner;
-		pass->dif_stockham   = fftset_v4f_r16_inner_stock;
-	} else if (   length % 4 == 0
-			  &&  length / 4 != 8
-			  &&  length / 4 != 4
-			  ) {
-		float *twid = cop_salloc(&(fc->mem), sizeof(float) * 6 * length / 4, 64);
-		if (twid == NULL)
-			return NULL;
-		for (i = 0; i < length / 4; i++) {
-			twid[6*i+0] = cosf(i * (-(float)M_PI * 2.0f) / length);
-			twid[6*i+1] = sinf(i * (-(float)M_PI * 2.0f) / length);
-			twid[6*i+2] = cosf(i * (-(float)M_PI * 4.0f) / length);
-			twid[6*i+3] = sinf(i * (-(float)M_PI * 4.0f) / length);
-			twid[6*i+4] = cosf(i * (-(float)M_PI * 6.0f) / length);
-			twid[6*i+5] = sinf(i * (-(float)M_PI * 6.0f) / length);
-		}
-		pass->twiddle      = twid;
-		pass->lfft_div_radix = length / 4;
-		pass->radix        = 4;
-		pass->dif          = fftset_v4f_r4_dif;
-		pass->dit          = fftset_v4f_r4_dit;
-		pass->dif_stockham = fftset_v4f_r4_stock;
-	} else if (length % 3 == 0) {
-		float *twid = cop_salloc(&(fc->mem), sizeof(float) * 4 * length / 3, 64);
-		if (twid == NULL)
-			return NULL;
-		for (i = 0; i < length / 3; i++) {
-			twid[4*i+0] = cosf(i * (-(float)M_PI * 2.0f) / length);
-			twid[4*i+1] = sinf(i * (-(float)M_PI * 2.0f) / length);
-			twid[4*i+2] = cosf(i * (-(float)M_PI * 4.0f) / length);
-			twid[4*i+3] = sinf(i * (-(float)M_PI * 4.0f) / length);
-		}
-		pass->twiddle        = twid;
-		pass->lfft_div_radix = length / 3;
-		pass->radix          = 3;
-		pass->dif            = fftset_v4f_r3_dif;
-		pass->dit            = fftset_v4f_r3_dit;
-		pass->dif_stockham   = fftset_v4f_r3_stock;
-	} else if (length % 2 == 0) {
-		float *twid = cop_salloc(&(fc->mem), sizeof(float) * length, 64);
-		if (twid == NULL)
-			return NULL;
-		for (i = 0; i < length / 2; i++) {
-			twid[2*i+0] = cosf(i * (-(float)M_PI * 2.0f) / length);
-			twid[2*i+1] = sinf(i * (-(float)M_PI * 2.0f) / length);
-		}
-		pass->twiddle      = twid;
-		pass->lfft_div_radix = length / 2;
-		pass->radix        = 2;
-		pass->dif          = fftset_v4f_r2_dif;
-		pass->dit          = fftset_v4f_r2_dit;
-		pass->dif_stockham = fftset_v4f_r2_stock;
+		pass->radix          = pass_radix;
+		pass->dif            = passes->pass->inner;
+		pass->dit            = passes->pass->inner;
+		pass->dif_stockham   = passes->pass->inner_stock;
+		pass->next_compat    = NULL;
 	} else {
-		/* Only support radix-2/3/4. What are you doing crazy-face? */
-		abort();
-	}
-
-	/* Make next pass if required */
-	if (pass->lfft_div_radix != 1) {
-		pass->next_compat = fastconv_get_inner_pass(fc, pass->lfft_div_radix);
+		unsigned j;
+		float *twid;
+		twid = cop_salloc(&(fc->mem), sizeof(float) * 2 * (pass_radix - 1) * pass_length / pass_radix, 64);
+		pass->twiddle        = twid;
+		pass->lfft_div_radix = pass_length / pass_radix;
+		pass->radix          = pass_radix;
+		pass->dif            = passes->pass->dif;
+		pass->dit            = passes->pass->dit;
+		pass->dif_stockham   = passes->pass->stock;
+		pass->next_compat    = fastconv_find_pass(fc, pass->lfft_div_radix);
+		if (pass->next_compat == NULL)
+			pass->next_compat = fastconv_add_passes(fc, passes + 1);
 		if (pass->next_compat == NULL)
 			return NULL;
-	} else {
-		pass->next_compat = NULL;
+		for (j = 0; j < pass_length / pass_radix; j++) {
+			unsigned k;
+			for (k = 1; k < pass_radix; k++) {
+				*twid++ = cosf(j * k * (-(float)M_PI * 2) / pass_length);
+				*twid++ = sinf(j * k * (-(float)M_PI * 2) / pass_length);
+			}
+		}
 	}
 
 	/* Insert into list. */
 	ipos = &(fc->first_inner);
-	while (*ipos != NULL && length < (*ipos)->lfft_div_radix * (*ipos)->radix) {
+	while (*ipos != NULL && pass_length < (*ipos)->lfft_div_radix * (*ipos)->radix) {
 		ipos = &(*ipos)->next;
 	}
 	pass->next = *ipos;
 	*ipos = pass;
 
 	return pass;
+}
+
+struct fftset_vec *fastconv_get_inner_pass(struct fftset *fc, unsigned length)
+{
+	struct fftset_vec *pass;
+	struct fft_graph_node passes[32];
+
+	/* Search for the pass. */
+	pass = fastconv_find_pass(fc, length);
+	if (pass != NULL)
+		return pass;
+
+	build_float_graph(passes, /* VEC LEN! */ 4, 1, length);
+
+#if 0
+	{
+		unsigned i;
+		for (i = 0; i < 32; i++) {
+			printf("pass %u: len=%u; cost=%u; nbfft=%u; radix=%u\n", i, passes[i].length, passes[i].cost, passes[i].nb_vec, passes[i].pass->radix);
+			if (passes[i].length == passes[i].pass->radix)
+				break;
+		}
+	}
+#endif
+
+	return fastconv_add_passes(fc, passes);
 }
