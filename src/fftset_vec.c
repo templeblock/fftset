@@ -892,8 +892,6 @@ struct float_pass_radix {
 	void     (*stock)(const float *in, float *out, const float *twid, unsigned ncol, unsigned nrow_div_radix);
 };
 
-
-#define SENTINAL_PASS {0, 0, 0, NULL, NULL, NULL, NULL, NULL}
 #define FLOAT_PASS_EVERY(vtyp_, radix_, vwidth_, foti_width_) \
 {   radix_ \
 ,   vwidth_ \
@@ -942,24 +940,23 @@ const struct float_pass_radix FFTSET_FLOAT_PASSES[] =
 ,FLOAT_PASS_INNER(v8f, 8,  8, 8)
 ,FLOAT_PASS_INNER(v8f, 16, 8, 8)
 #endif
-,SENTINAL_PASS
 };
 
 #define NB_PASSES (sizeof(FFTSET_FLOAT_PASSES) / sizeof(FFTSET_FLOAT_PASSES[0]))
 
 struct fft_graph_node {
 	/* Number of vector FFTs that will be executed in this pass. */
-	unsigned                 nb_vec;
+	unsigned                       nb_vec;
 
 	/* The length of the vector FFTs. */
-	unsigned                 length;
+	unsigned                       length;
 
 	/* The pass definition. */
-	struct float_pass_radix *pass;
+	const struct float_pass_radix *pass;
 
 	/* So the total number of input elements to the transform will be
 	 *   pass->vwidth * nb_vec * length */
-	unsigned                 cost; /* zero indicates the cost is not set. */
+	unsigned                       cost; /* zero indicates the cost is not set. */
 };
 
 int
