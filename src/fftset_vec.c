@@ -959,6 +959,18 @@ struct fft_graph_node {
 	unsigned                       cost; /* zero indicates the cost is not set. */
 };
 
+static struct fftset_vec *fastconv_find_pass(const struct fftset *fc, unsigned length)
+{
+	struct fftset_vec *pass;
+	for (pass = fc->first_inner; pass != NULL; pass = pass->next) {
+		if (pass->lfft_div_radix*pass->radix == length)
+			return pass;
+		if (pass->lfft_div_radix*pass->radix < length)
+			break;
+	}
+	return NULL;
+}
+
 int
 build_float_graph
 	(struct fft_graph_node   *best
@@ -1020,18 +1032,6 @@ build_float_graph
 
 #include <stdio.h>
 
-static struct fftset_vec *fastconv_find_pass(struct fftset *fc, unsigned length)
-{
-	struct fftset_vec *pass;
-	for (pass = fc->first_inner; pass != NULL; pass = pass->next) {
-		if (pass->lfft_div_radix*pass->radix == length && pass->dif != NULL)
-			return pass;
-		if (pass->lfft_div_radix*pass->radix < length)
-			break;
-	}
-	return NULL;
-}
-
 static struct fftset_vec *fastconv_add_passes(struct fftset *fc, struct fft_graph_node *passes)
 {
 	unsigned            pass_radix  = passes->pass->radix;
@@ -1048,6 +1048,7 @@ static struct fftset_vec *fastconv_add_passes(struct fftset *fc, struct fft_grap
 		pass->twiddle        = NULL;
 		pass->lfft_div_radix = 1;
 		pass->radix          = pass_radix;
+		pass->cost           = passes->cost;
 		pass->dif            = passes->pass->inner;
 		pass->dit            = passes->pass->inner;
 		pass->dif_stockham   = passes->pass->inner_stock;
@@ -1059,6 +1060,7 @@ static struct fftset_vec *fastconv_add_passes(struct fftset *fc, struct fft_grap
 		pass->twiddle        = twid;
 		pass->lfft_div_radix = pass_length / pass_radix;
 		pass->radix          = pass_radix;
+		pass->cost           = passes->cost;
 		pass->dif            = passes->pass->dif;
 		pass->dit            = passes->pass->dit;
 		pass->dif_stockham   = passes->pass->stock;
@@ -1089,8 +1091,8 @@ static struct fftset_vec *fastconv_add_passes(struct fftset *fc, struct fft_grap
 
 struct fftset_vec *fastconv_get_inner_pass(struct fftset *fc, unsigned length)
 {
-	struct fftset_vec *pass;
-	struct fft_graph_node passes[32];
+	struct fftset_vec     *pass;
+	struct fft_graph_node  passes[32];
 
 	/* Search for the pass. */
 	pass = fastconv_find_pass(fc, length);

@@ -26,6 +26,7 @@
 struct fftset_vec {
 	unsigned                    lfft_div_radix;
 	unsigned                    radix;
+	unsigned                    cost;
 	const float                *twiddle;
 
 	/* The best next pass to use (this pass will have:

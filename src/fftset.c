@@ -212,6 +212,11 @@ int fftset_init(struct fftset *fc)
 
 void fftset_destroy(struct fftset *fc)
 {
+#if 0
+	struct fftset_vec *pass;
+	for (pass = fc->first_inner; pass != NULL; pass = pass->next)
+		printf("len=%u; cost=%u; radix=%u\n", pass->lfft_div_radix*pass->radix, pass->cost, pass->radix);
+#endif
 	cop_alloc_grp_temps_free(&(fc->mem_impl));
 }
 
