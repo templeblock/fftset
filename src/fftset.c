@@ -157,7 +157,7 @@ fftset_fft_forward
 	for (vec_pass = first_pass->next_compat; vec_pass != NULL; vec_pass = vec_pass->next_compat) {
 		float *tmp;
 
-		vec_pass->dif_stockham(work_buf, output_buf, vec_pass->twiddle, vec_pass->lfft_div_radix, nfft);
+		vec_pass->dif_stockham(output_buf, work_buf, vec_pass->twiddle, vec_pass->lfft_div_radix, nfft);
 		nfft      *= vec_pass->radix;
 
 		tmp        = output_buf;
@@ -188,7 +188,7 @@ fftset_fft_inverse
 	for (vec_pass = first_pass->next_compat; vec_pass != NULL; vec_pass = vec_pass->next_compat) {
 		float *tmp;
 
-		vec_pass->dif_stockham(work_buf, output_buf, vec_pass->twiddle, vec_pass->lfft_div_radix, nfft);
+		vec_pass->dif_stockham(output_buf, work_buf, vec_pass->twiddle, vec_pass->lfft_div_radix, nfft);
 		nfft      *= vec_pass->radix;
 
 		tmp        = output_buf;

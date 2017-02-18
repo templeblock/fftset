@@ -37,7 +37,7 @@ struct fftset_vec {
 	 * both non-null. */
 	void (*dit)(float *work_buf, unsigned nfft, unsigned lfft, const float *twid);
 	void (*dif)(float *work_buf, unsigned nfft, unsigned lfft, const float *twid);
-	void (*dif_stockham)(const float *in, float *out, const float *twid, unsigned ncol, unsigned nrow_div_radix);
+	void (*dif_stockham)(float *out, const float *in, const float *twid, unsigned ncol, unsigned nrow_div_radix);
 
 	/* Position in list of all passes of this type (outer or inner pass). */
 	struct fftset_vec       *next;

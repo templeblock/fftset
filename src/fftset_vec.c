@@ -51,7 +51,7 @@ static void fftset_ ## vtyp_ ## _r ## n_ ## _inner(ctyp_ *work_buf, unsigned nff
 		work_buf += 2 * (n_) * vwidth_; \
 	} while (--nfft); \
 } \
-static void fftset_ ## vtyp_ ## _r ## n_ ## _inner_stock(const ctyp_ *in, ctyp_ *out, const ctyp_ *twid, unsigned ncol, unsigned nrow_div_radix) \
+static void fftset_ ## vtyp_ ## _r ## n_ ## _inner_stock(ctyp_ *out, const ctyp_ *in, const ctyp_ *twid, unsigned ncol, unsigned nrow_div_radix) \
 { \
 	const unsigned ioffset = (2*vwidth_)*nrow_div_radix; \
 	assert(ncol == 1); \
@@ -87,7 +87,7 @@ static void fftset_ ## vtyp_ ## _r ## n_ ## _dit(ctyp_ *work_buf, unsigned nfft,
 		work_buf += ((n_) - 1)*rinc; \
 	} while (--nfft); \
 } \
-static void fftset_ ## vtyp_ ## _r ## n_ ## _stock(const ctyp_ *in, ctyp_ *out, const ctyp_ *twid, unsigned ncol, unsigned nrow_div_radix) \
+static void fftset_ ## vtyp_ ## _r ## n_ ## _stock(ctyp_ *out, const ctyp_ *in, const ctyp_ *twid, unsigned ncol, unsigned nrow_div_radix) \
 { \
 	const unsigned ooffset = (2*vwidth_)*ncol; \
 	const unsigned ioffset = ooffset*nrow_div_radix; \
@@ -886,10 +886,10 @@ struct float_pass_radix {
 	unsigned   foti_vec_len;
 
 	void     (*inner)(float *work, unsigned nfft, unsigned lfft, const float *twid);
-	void     (*inner_stock)(const float *in, float *out, const float *twid, unsigned ncol, unsigned nrow_div_radix);
+	void     (*inner_stock)(float *out, const float *in, const float *twid, unsigned ncol, unsigned nrow_div_radix);
 	void     (*dif)(float *work, unsigned nfft, unsigned lfft, const float *twid);
 	void     (*dit)(float *work, unsigned nfft, unsigned lfft, const float *twid);
-	void     (*stock)(const float *in, float *out, const float *twid, unsigned ncol, unsigned nrow_div_radix);
+	void     (*stock)(float *out, const float *in, const float *twid, unsigned ncol, unsigned nrow_div_radix);
 };
 
 #define FLOAT_PASS_EVERY(vtyp_, radix_, vwidth_, foti_width_) \
