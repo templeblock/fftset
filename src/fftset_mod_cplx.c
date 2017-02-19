@@ -24,8 +24,10 @@
 
 #include "fftset_modulation.h"
 #include "cop/cop_vec.h"
+#include "fftset_vec.h"
 #include <assert.h>
 #include <math.h>
+#include <string.h>
 
 #ifndef V4F_EXISTS
 #error "this implementation requires a v4f type"
@@ -152,38 +154,101 @@ static void modcplx_inverse_final(float *vec_output, const float *input, const f
 	}
 }
 
-static void modcplx_forward_reorder(float *out_buf, const float *in_buf, const float *twid, unsigned lfft)
+static
+void
+modcplx_get_kernel
+	(const struct fftset_fft    *first_pass
+	,float                      *output_buf
+	,const float                *input_buf
+	)
 {
+	modcplx_forward_first(output_buf, input_buf, first_pass->main_twiddle, first_pass->lfft);
+	fftset_vec_kern(first_pass->next_compat, 1, output_buf);
+}
+
+static
+void
+modcplx_conv
+	(const struct fftset_fft *first_pass
+	,float                      *output_buf
+	,const float                *input_buf
+	,const float                *kernel_buf
+	,float                      *work_buf
+	)
+{
+	modcplx_forward_first(work_buf, input_buf, first_pass->main_twiddle, first_pass->lfft);
+	fftset_vec_conv(first_pass->next_compat, 1, work_buf, kernel_buf);
+	modcplx_inverse_final(output_buf, work_buf, first_pass->main_twiddle, first_pass->lfft);
+}
+
+static
+void
+modcplx_forward
+	(const struct fftset_fft *first_pass
+	,float                   *output_buf
+	,const float             *input_buf
+	,float                   *work_buf
+	)
+{
+	const unsigned lfft = first_pass->lfft;
 	unsigned i;
+
+	modcplx_forward_first(work_buf, input_buf, first_pass->main_twiddle, lfft);
+
+	input_buf = fftset_vec_stockham(first_pass->next_compat, 1, work_buf, output_buf);
+
+	if (input_buf != work_buf) {
+		assert(input_buf == output_buf);
+		memcpy(work_buf, output_buf, sizeof(float) * lfft * 2);
+	}
+
 	for (i = 0; i < lfft / 8; i++) {
 		v4f a, b, c, d;
-		V4F_LD2(a, b, in_buf + 16*i + 0);
-		V4F_LD2(c, d, in_buf + 16*i + 8);
-		V4F_ST2X2INT(out_buf + 16*i + 0, out_buf + 16*i + 8, a, b, c, d);
+		V4F_LD2(a, b, work_buf + 16*i + 0);
+		V4F_LD2(c, d, work_buf + 16*i + 8);
+		V4F_ST2X2INT(output_buf + 16*i + 0, output_buf + 16*i + 8, a, b, c, d);
 	}
 }
 
-static void modcplx_inverse_reorder(float *out_buf, const float *in_buf, const float *twid, unsigned lfft)
+static
+void
+modcplx_inverse
+	(const struct fftset_fft    *first_pass
+	,float                      *output_buf
+	,const float                *input_buf
+	,float                      *work_buf
+	)
 {
+	const unsigned lfft = first_pass->lfft;
 	unsigned i;
+
 	for (i = 0; i < lfft / 8; i++) {
 		v4f a, b, c, d;
-		V4F_LD2X2DINT(a, b, c, d, in_buf + i*16 + 0, in_buf + i*16 + 8);
+		V4F_LD2X2DINT(a, b, c, d, input_buf + i*16 + 0, input_buf + i*16 + 8);
 		b = v4f_neg(b);
 		d = v4f_neg(d);
-		V4F_ST2(out_buf + 16*i + 0, a, b);
-		V4F_ST2(out_buf + 16*i + 8, c, d);
+		V4F_ST2(work_buf + 16*i + 0, a, b);
+		V4F_ST2(work_buf + 16*i + 8, c, d);
 	}
+
+	input_buf = fftset_vec_stockham(first_pass->next_compat, 1, work_buf, output_buf);
+
+	if (input_buf != work_buf) {
+		assert(input_buf == output_buf);
+		memcpy(work_buf, output_buf, sizeof(float) * lfft * 2);
+	}
+
+	modcplx_inverse_final(output_buf, work_buf, first_pass->main_twiddle, lfft);
 }
 
 static const struct fftset_modulation FFTSET_MODULATION_COMPLEX_DEF =
 {   4
 ,   NULL
 ,   NULL
-,   modcplx_forward_first
-,   modcplx_forward_reorder
-,   modcplx_inverse_reorder
-,   modcplx_inverse_final
+,   modcplx_get_kernel
+,   modcplx_forward
+,   modcplx_inverse
+,   modcplx_conv
 };
 
 const struct fftset_modulation *FFTSET_MODULATION_COMPLEX = &FFTSET_MODULATION_COMPLEX_DEF;

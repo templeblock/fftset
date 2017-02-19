@@ -45,7 +45,11 @@ struct fftset_vec {
 	struct fftset_vec       *next;
 };
 
-struct fftset_vec *fastconv_get_inner_pass(struct fftset *fc, unsigned length);
+struct fftset_vec *
+fastconv_get_inner_pass
+	(struct fftset            *fc
+	,unsigned                  length
+	);
 
 void
 fftset_vec_kern
@@ -54,13 +58,13 @@ fftset_vec_kern
 	,float                    *work_buf
 	);
 
-/* The output will be conjugated! */
+/* The final output will be conjugated! */
 void
 fftset_vec_conv
-	(const struct fftset_vec *first_pass
-	,unsigned                 nb_vec_fft
-	,float                   *work_buf
-	,const float             *kernel_buf
+	(const struct fftset_vec  *first_pass
+	,unsigned                  nb_vec_fft
+	,float                    *work_buf
+	,const float              *kernel_buf
 	);
 
 float *

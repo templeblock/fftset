@@ -40,35 +40,6 @@
 #error "this implementation requires a v4f type"
 #endif
 
-struct fftset_fft {
-	unsigned       lfft;
-	unsigned       radix;
-
-	const struct fftset_modulation *modulator;
-
-	const float   *main_twiddle;
-	const float   *reord_twiddle;
-
-	void         (*forward)      (float *out, const float *in, const float *twid, unsigned lfft_div_radix);
-	void         (*forward_reord)(float *out, const float *in, const float *twid, unsigned lfft_div_radix);
-
-	/* Conjugate the input data (as all of the vector passes are forward-DFTs)
-	 * and reorder it ready for vector passes. */
-	void         (*reverse_reord)(float *out, const float *in, const float *twid, unsigned lfft_div_radix);
-
-	/* Perform the final twiddles (if necessary), conjugate the output (again,
-	 * because all inner passes are forward) and reorder in the expected
-	 * way. */
-	void         (*reverse)      (float *out, const float *in, const float *twid, unsigned lfft_div_radix);
-
-	/* The best next pass to use (this pass will have:
-	 *      next->lfft = this->lfft / this->radix */
-	const struct fftset_vec *next_compat;
-
-	/* Position in list of all passes of this type (outer or inner pass). */
-	struct fftset_fft       *next;
-};
-
 #define FASTCONV_REAL_LEN_MULTIPLE (32)
 
 void
@@ -78,22 +49,19 @@ fftset_fft_conv_get_kernel
 	,const float                *input_buf
 	)
 {
-	first_pass->forward(output_buf, input_buf, first_pass->main_twiddle, first_pass->lfft);
-	fftset_vec_kern(first_pass->next_compat, 1, output_buf);
+	first_pass->modulator->get_kern(first_pass, output_buf, input_buf);
 }
 
 void
 fftset_fft_conv
-	(const struct fftset_fft *first_pass
+	(const struct fftset_fft    *first_pass
 	,float                      *output_buf
 	,const float                *input_buf
 	,const float                *kernel_buf
 	,float                      *work_buf
 	)
 {
-	first_pass->forward(work_buf, input_buf, first_pass->main_twiddle, first_pass->lfft);
-	fftset_vec_conv(first_pass->next_compat, 1, work_buf, kernel_buf);
-	first_pass->reverse(output_buf, work_buf, first_pass->main_twiddle, first_pass->lfft);
+	first_pass->modulator->conv(first_pass, output_buf, input_buf, kernel_buf, work_buf);
 }
 
 void
@@ -104,17 +72,7 @@ fftset_fft_forward
 	,float                      *work_buf
 	)
 {
-	first_pass->forward(work_buf, input_buf, first_pass->main_twiddle, first_pass->lfft);
-
-	input_buf = fftset_vec_stockham(first_pass->next_compat, 1, work_buf, output_buf);
-
-	if (input_buf == work_buf) {
-		first_pass->forward_reord(output_buf, work_buf, first_pass->reord_twiddle, first_pass->lfft);
-	} else {
-		assert(input_buf == output_buf);
-		memcpy(work_buf, output_buf, sizeof(float) * first_pass->lfft * 2);
-		first_pass->forward_reord(output_buf, work_buf, first_pass->reord_twiddle, first_pass->lfft);
-	}
+	first_pass->modulator->fwd(first_pass, output_buf, input_buf, work_buf);
 }
 
 void
@@ -125,17 +83,7 @@ fftset_fft_inverse
 	,float                      *work_buf
 	)
 {
-	first_pass->reverse_reord(work_buf, input_buf, first_pass->reord_twiddle, first_pass->lfft);
-
-	input_buf = fftset_vec_stockham(first_pass->next_compat, 1, work_buf, output_buf);
-
-	if (input_buf == work_buf) {
-		first_pass->reverse(output_buf, work_buf, first_pass->main_twiddle, first_pass->lfft);
-	} else {
-		assert(input_buf == output_buf);
-		memcpy(work_buf, output_buf, sizeof(float) * first_pass->lfft * 2);
-		first_pass->reverse(output_buf, work_buf, first_pass->main_twiddle, first_pass->lfft);
-	}
+	first_pass->modulator->inv(first_pass, output_buf, input_buf, work_buf);
 }
 
 int fftset_init(struct fftset *fc)
@@ -198,10 +146,6 @@ const struct fftset_fft *fftset_create_fft(struct fftset *fc, const struct fftse
 	pass->lfft          = complex_bins;
 	pass->modulator     = modulation;
 	pass->radix         = modulation->radix;
-	pass->forward       = modulation->forward;
-	pass->reverse       = modulation->reverse;
-	pass->forward_reord = modulation->forward_reord;
-	pass->reverse_reord = modulation->reverse_reord;
 
 	/* Insert into list. */
 	ipos = &(fc->first_outer);

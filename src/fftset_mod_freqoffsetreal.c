@@ -23,9 +23,11 @@
 #endif
 
 #include "fftset_modulation.h"
+#include "fftset_vec.h"
 #include "cop/cop_vec.h"
 #include <assert.h>
 #include <math.h>
+#include <string.h>
 
 #ifndef V4F_EXISTS
 #error "this implementation requires a v4f type"
@@ -245,41 +247,6 @@ static void modfreqoffsetreal_inverse_final(float *output, const float *vec_inpu
 	}
 }
 
-static void modfreqoffsetreal_forward_reorder(float *out_buf, const float *in_buf, const float *twid, unsigned lfft)
-{
-	unsigned i;
-	for (i = 0; i < lfft / 8; i++) {
-		v4f tor1, toi1, tor2, toi2; 
-		v4f re1 = v4f_ld(in_buf + i*8 + 0);
-		v4f im1 = v4f_ld(in_buf + i*8 + 4);
-		v4f re2 = v4f_ld(in_buf + lfft*2 - i*8 - 8);
-		v4f im2 = v4f_ld(in_buf + lfft*2 - i*8 - 4);
-		re2     = v4f_reverse(re2);
-		im2     = v4f_reverse(v4f_neg(im2));
-		V4F_INTERLEAVE(tor1, tor2, re1, re2);
-		V4F_INTERLEAVE(toi1, toi2, im1, im2);
-		V4F_ST2X2INT(out_buf + i*16, out_buf + i*16 + 8, tor1, toi1, tor2, toi2);
-	}
-}
-
-static void modfreqoffsetreal_inverse_reorder(float *out_buf, const float *in_buf, const float *twid, unsigned lfft)
-{
-	unsigned i;
-	for (i = 0; i < lfft / 8; i++) {
-		v4f tor1, toi1, tor2, toi2, re1, im1, re2, im2;
-		V4F_LD2X2DINT(tor1, toi1, tor2, toi2, in_buf + i*16, in_buf + i*16 + 8);
-		V4F_DEINTERLEAVE(re1, re2, tor1, tor2);
-		V4F_DEINTERLEAVE(im1, im2, toi1, toi2);
-		re2 = v4f_reverse(re2);
-		im2 = v4f_reverse(im2);
-		im1 = v4f_neg(im1);
-		v4f_st(out_buf + i*8 + 0, re1);
-		v4f_st(out_buf + i*8 + 4, im1);
-		v4f_st(out_buf + lfft*2 - i*8 - 8, re2);
-		v4f_st(out_buf + lfft*2 - i*8 - 4, im2);
-	}
-}
-
 static const float *modfreqoffsetreal_get_twid(struct cop_salloc_iface *alloc, unsigned length)
 {
 	float *twid = cop_salloc(alloc, sizeof(float) * 56 * length / 16, 64);
@@ -311,14 +278,114 @@ static const float *modfreqoffsetreal_get_twid(struct cop_salloc_iface *alloc, u
 	return twid;
 }
 
+static
+void
+modfreqoffsetreal_get_kernel
+	(const struct fftset_fft    *first_pass
+	,float                      *output_buf
+	,const float                *input_buf
+	)
+{
+	modfreqoffsetreal_forward_first(output_buf, input_buf, first_pass->main_twiddle, first_pass->lfft);
+	fftset_vec_kern(first_pass->next_compat, 1, output_buf);
+}
+
+static
+void
+modfreqoffsetreal_conv
+	(const struct fftset_fft *first_pass
+	,float                      *output_buf
+	,const float                *input_buf
+	,const float                *kernel_buf
+	,float                      *work_buf
+	)
+{
+	modfreqoffsetreal_forward_first(work_buf, input_buf, first_pass->main_twiddle, first_pass->lfft);
+	fftset_vec_conv(first_pass->next_compat, 1, work_buf, kernel_buf);
+	modfreqoffsetreal_inverse_final(output_buf, work_buf, first_pass->main_twiddle, first_pass->lfft);
+}
+
+static
+void
+modfreqoffsetreal_forward
+	(const struct fftset_fft *first_pass
+	,float                      *output_buf
+	,const float                *input_buf
+	,float                      *work_buf
+	)
+{
+	const unsigned lfft = first_pass->lfft;
+	unsigned i;
+
+	modfreqoffsetreal_forward_first(work_buf, input_buf, first_pass->main_twiddle, lfft);
+
+	input_buf = fftset_vec_stockham(first_pass->next_compat, 1, work_buf, output_buf);
+
+	if (input_buf != work_buf) {
+		assert(input_buf == output_buf);
+		memcpy(work_buf, output_buf, sizeof(float) * lfft * 2);
+	}
+
+	for (i = 0; i < lfft / 8; i++) {
+		v4f tor1, toi1, tor2, toi2; 
+		v4f re1 = v4f_ld(work_buf + i*8 + 0);
+		v4f im1 = v4f_ld(work_buf + i*8 + 4);
+		v4f re2 = v4f_ld(work_buf + lfft*2 - i*8 - 8);
+		v4f im2 = v4f_ld(work_buf + lfft*2 - i*8 - 4);
+		re2     = v4f_reverse(re2);
+		im2     = v4f_reverse(v4f_neg(im2));
+		V4F_INTERLEAVE(tor1, tor2, re1, re2);
+		V4F_INTERLEAVE(toi1, toi2, im1, im2);
+		V4F_ST2X2INT(output_buf + i*16, output_buf + i*16 + 8, tor1, toi1, tor2, toi2);
+	}
+}
+
+static
+void
+modfreqoffsetreal_inverse
+	(const struct fftset_fft    *first_pass
+	,float                      *output_buf
+	,const float                *input_buf
+	,float                      *work_buf
+	)
+{
+	const unsigned lfft = first_pass->lfft;
+	unsigned i;
+
+	for (i = 0; i < lfft / 8; i++) {
+		v4f tor1, toi1, tor2, toi2, re1, im1, re2, im2;
+		V4F_LD2X2DINT(tor1, toi1, tor2, toi2, input_buf + i*16, input_buf + i*16 + 8);
+		V4F_DEINTERLEAVE(re1, re2, tor1, tor2);
+		V4F_DEINTERLEAVE(im1, im2, toi1, toi2);
+		re2 = v4f_reverse(re2);
+		im2 = v4f_reverse(im2);
+		im1 = v4f_neg(im1);
+		v4f_st(work_buf + i*8 + 0, re1);
+		v4f_st(work_buf + i*8 + 4, im1);
+		v4f_st(work_buf + lfft*2 - i*8 - 8, re2);
+		v4f_st(work_buf + lfft*2 - i*8 - 4, im2);
+	}
+
+	input_buf = fftset_vec_stockham(first_pass->next_compat, 1, work_buf, output_buf);
+
+	if (input_buf == work_buf) {
+		modfreqoffsetreal_inverse_final(output_buf, work_buf, first_pass->main_twiddle, lfft);
+	} else {
+		assert(input_buf == output_buf);
+		memcpy(work_buf, output_buf, sizeof(float) * lfft * 2);
+		modfreqoffsetreal_inverse_final(output_buf, work_buf, first_pass->main_twiddle, lfft);
+	}
+}
+
 static const struct fftset_modulation FFTSET_MODULATION_FREQ_OFFSET_REAL_DEF =
 {   4
 ,   NULL
 ,   modfreqoffsetreal_get_twid
-,   modfreqoffsetreal_forward_first
-,   modfreqoffsetreal_forward_reorder
-,   modfreqoffsetreal_inverse_reorder
-,   modfreqoffsetreal_inverse_final
+,   modfreqoffsetreal_get_kernel
+,   modfreqoffsetreal_forward
+,   modfreqoffsetreal_inverse
+,   modfreqoffsetreal_conv
 };
 
 const struct fftset_modulation *FFTSET_MODULATION_FREQ_OFFSET_REAL = &FFTSET_MODULATION_FREQ_OFFSET_REAL_DEF;
+
