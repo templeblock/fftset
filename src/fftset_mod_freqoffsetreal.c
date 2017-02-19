@@ -379,7 +379,6 @@ modfreqoffsetreal_inverse
 
 static const struct fftset_modulation FFTSET_MODULATION_FREQ_OFFSET_REAL_DEF =
 {   4
-,   NULL
 ,   modfreqoffsetreal_get_twid
 ,   modfreqoffsetreal_get_kernel
 ,   modfreqoffsetreal_forward

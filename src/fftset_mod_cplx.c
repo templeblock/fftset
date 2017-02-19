@@ -244,7 +244,6 @@ modcplx_inverse
 static const struct fftset_modulation FFTSET_MODULATION_COMPLEX_DEF =
 {   4
 ,   NULL
-,   NULL
 ,   modcplx_get_kernel
 ,   modcplx_forward
 ,   modcplx_inverse

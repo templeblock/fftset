@@ -130,14 +130,6 @@ const struct fftset_fft *fftset_create_fft(struct fftset *fc, const struct fftse
 		pass->main_twiddle = NULL;
 	}
 
-	if (modulation->get_twid_reord != NULL) {
-		pass->reord_twiddle = modulation->get_twid_reord(&(fc->mem), complex_bins);
-		if (pass->reord_twiddle == NULL)
-			return NULL;
-	} else {
-		pass->reord_twiddle = NULL;
-	}
-
 	/* Create inner passes recursively. */
 	pass->next_compat = fastconv_get_inner_pass(fc, complex_bins / modulation->radix);
 	if (pass->next_compat == NULL)
@@ -145,7 +137,6 @@ const struct fftset_fft *fftset_create_fft(struct fftset *fc, const struct fftse
 
 	pass->lfft          = complex_bins;
 	pass->modulator     = modulation;
-	pass->radix         = modulation->radix;
 
 	/* Insert into list. */
 	ipos = &(fc->first_outer);

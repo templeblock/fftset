@@ -28,7 +28,6 @@ struct fftset_fft;
 struct fftset_modulation {
 	unsigned       radix;
 
-	const float *(*get_twid_reord)(struct cop_salloc_iface *alloc, unsigned lfft_div_radix);
 	const float *(*get_twid)(struct cop_salloc_iface *alloc, unsigned lfft_div_radix);
 
 	void         (*get_kern)(const struct fftset_fft *fft, float *out, const float *in);
@@ -38,20 +37,15 @@ struct fftset_modulation {
 };
 
 struct fftset_fft {
-	unsigned       lfft;
-	unsigned       radix;
-
+	/* The following members are used by fftset in searches for particular
+	 * FFTs. */
+	unsigned                        lfft;
 	const struct fftset_modulation *modulator;
+	struct fftset_fft              *next;
 
-	const float   *main_twiddle;
-	const float   *reord_twiddle;
-
-	/* The best next pass to use (this pass will have:
-	 *      next->lfft = this->lfft / this->radix */
-	const struct fftset_vec *next_compat;
-
-	/* Position in list of all passes of this type (outer or inner pass). */
-	struct fftset_fft       *next;
+	/* You are free to modify the rest of the members to suit your needs. */
+	const float                    *main_twiddle;
+	const struct fftset_vec        *next_compat;
 };
 
 #endif /* FFTSET_MODULATION_H */
