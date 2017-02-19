@@ -78,7 +78,7 @@ int prime_impulse_test(struct fftset *fftset, unsigned length, float *buf1, floa
 	float worst;
 
 	if (fft == NULL) {
-		printf("could not create fft object\n");
+		printf("could not create FFTSET_MODULATION_FREQ_OFFSET_REAL fft\n");
 		return 1;
 	}
 
@@ -161,7 +161,7 @@ int convolution_test(struct fftset *fftset, unsigned length, float *buf1, float 
 	float avg_re;
 
 	if (fft == NULL) {
-		printf("could not create fft object\n");
+		printf("could not create FFTSET_MODULATION_FREQ_OFFSET_REAL fft\n");
 		return 1;
 	}
 
@@ -226,7 +226,7 @@ int prime_impulse_test_complex(struct fftset *fftset, unsigned length, float *bu
 	float worst;
 
 	if (fft == NULL) {
-		printf("could not create fft object\n");
+		printf("could not create FFTSET_MODULATION_COMPLEX fft\n");
 		return 1;
 	}
 
@@ -308,7 +308,7 @@ int prime_impulse_test_complex(struct fftset *fftset, unsigned length, float *bu
 }
 
 
-#define FREQ_OFFSET_REAL_LEN (VLF_WIDTH * VLF_WIDTH * 2)
+#define FREQ_OFFSET_REAL_LEN (VLF_WIDTH * VLF_WIDTH * 4)
 
 int main(int argc, char *argv[])
 {

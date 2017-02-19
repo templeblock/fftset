@@ -29,12 +29,8 @@
 #include <math.h>
 #include <string.h>
 
-#ifndef V4F_EXISTS
-#error "this implementation requires a v4f type"
-#endif
-
+#ifdef V4F_EXISTS
 #define VEC_V4F_WIDTH (4)
-
 static void modfreqoffsetreal_forward_first(float *vec_output, const float *input, const float *coefs, unsigned fft_len)
 {
 	const unsigned fft_len_4 = fft_len / 4;
@@ -249,7 +245,7 @@ static void modfreqoffsetreal_inverse_final(float *output, const float *vec_inpu
 
 static
 void
-modfreqoffsetreal_get_kernel
+modfreqoffsetreal_get_kernel_v4f
 	(const struct fftset_fft    *first_pass
 	,float                      *output_buf
 	,const float                *input_buf
@@ -261,7 +257,7 @@ modfreqoffsetreal_get_kernel
 
 static
 void
-modfreqoffsetreal_conv
+modfreqoffsetreal_conv_v4f
 	(const struct fftset_fft *first_pass
 	,float                      *output_buf
 	,const float                *input_buf
@@ -276,7 +272,7 @@ modfreqoffsetreal_conv
 
 static
 void
-modfreqoffsetreal_forward
+modfreqoffsetreal_forward_v4f
 	(const struct fftset_fft *first_pass
 	,float                      *output_buf
 	,const float                *input_buf
@@ -311,7 +307,7 @@ modfreqoffsetreal_forward
 
 static
 void
-modfreqoffsetreal_inverse
+modfreqoffsetreal_inverse_v4f
 	(const struct fftset_fft    *first_pass
 	,float                      *output_buf
 	,const float                *input_buf
@@ -345,52 +341,187 @@ modfreqoffsetreal_inverse
 		modfreqoffsetreal_inverse_final(output_buf, work_buf, first_pass->main_twiddle, lfft);
 	}
 }
+#endif
+
+static
+void
+modfreqoffsetreal_get_kernel_v1f
+	(const struct fftset_fft    *first_pass
+	,float                      *output_buf
+	,const float                *input_buf
+	)
+{
+	unsigned i;
+	unsigned lfft = first_pass->lfft;
+	for (i = 0; i < lfft; i++) {
+		float re  =  input_buf[i];
+		float im  = -input_buf[lfft+i];
+		float twr = cosf(-2.0f * (float)M_PI * i / (lfft * 4.0f));
+		float twi = sinf(-2.0f * (float)M_PI * i / (lfft * 4.0f));
+		output_buf[2*i+0] = re * twr - im * twi;
+		output_buf[2*i+1] = re * twi + im * twr;
+	}
+	fftset_vec_kern(first_pass->next_compat, 1, output_buf);
+}
+
+static
+void
+modfreqoffsetreal_conv_v1f
+	(const struct fftset_fft *first_pass
+	,float                   *output_buf
+	,const float             *input_buf
+	,const float             *kernel_buf
+	,float                   *work_buf
+	)
+{
+	unsigned i;
+	unsigned lfft = first_pass->lfft;
+	for (i = 0; i < lfft; i++) {
+		float re  =  input_buf[i];
+		float im  = -input_buf[lfft+i];
+		float twr = cosf(-2.0f * (float)M_PI * i / (lfft * 4.0f));
+		float twi = sinf(-2.0f * (float)M_PI * i / (lfft * 4.0f));
+		work_buf[2*i+0] = re * twr - im * twi;
+		work_buf[2*i+1] = re * twi + im * twr;
+	}
+	fftset_vec_conv(first_pass->next_compat, 1, work_buf, kernel_buf);
+	for (i = 0; i < lfft; i++) {
+		float re  =  work_buf[2*i+0];
+		float im  = -work_buf[2*i+1];
+		float twr = cosf(2.0f * (float)M_PI * i / (lfft * 4.0f));
+		float twi = sinf(2.0f * (float)M_PI * i / (lfft * 4.0f));
+		output_buf[i]        =   re * twr - im * twi;
+		output_buf[lfft+i] = -(re * twi + im * twr);
+	}
+}
+
+static
+void
+modfreqoffsetreal_forward_v1f
+	(const struct fftset_fft *first_pass
+	,float                   *output_buf
+	,const float             *input_buf
+	,float                   *work_buf
+	)
+{
+	unsigned i;
+	unsigned lfft = first_pass->lfft;
+	for (i = 0; i < lfft; i++) {
+		float re  =  input_buf[i];
+		float im  = -input_buf[lfft+i];
+		float twr = cosf(-2.0f * (float)M_PI * i / (lfft * 4.0f));
+		float twi = sinf(-2.0f * (float)M_PI * i / (lfft * 4.0f));
+		work_buf[2*i+0] = re * twr - im * twi;
+		work_buf[2*i+1] = re * twi + im * twr;
+	}
+	input_buf = fftset_vec_stockham(first_pass->next_compat, 1, work_buf, output_buf);
+	if (input_buf == output_buf)
+		memcpy(work_buf, output_buf, sizeof(float) * lfft * 2);
+	for (i = 0; i < lfft / 2; i++) {
+		float re0 = work_buf[2*i+0];
+		float im0 = work_buf[2*i+1];
+		float re1 = work_buf[2*lfft-2-2*i];
+		float im1 = work_buf[2*lfft-1-2*i];
+		output_buf[4*i+0] = re0;
+		output_buf[4*i+1] = im0;
+		output_buf[4*i+2] = re1;
+		output_buf[4*i+3] = -im1;
+	}
+}
+
+static
+void
+modfreqoffsetreal_inverse_v1f
+	(const struct fftset_fft    *first_pass
+	,float                      *output_buf
+	,const float                *input_buf
+	,float                      *work_buf
+	)
+{
+	unsigned i;
+	unsigned lfft = first_pass->lfft;
+	for (i = 0; i < lfft / 2; i++) {
+		float re0 = input_buf[4*i+0];
+		float im0 = input_buf[4*i+1];
+		float re1 = input_buf[4*i+2];
+		float im1 = input_buf[4*i+3];
+		work_buf[2*i+0]        = re0;
+		work_buf[2*i+1]        = -im0;
+		work_buf[2*lfft-2-2*i] = re1;
+		work_buf[2*lfft-1-2*i] = im1;
+	}
+	input_buf = fftset_vec_stockham(first_pass->next_compat, 1, work_buf, output_buf);
+	if (input_buf == output_buf)
+		memcpy(work_buf, output_buf, sizeof(float) * lfft * 2);
+	for (i = 0; i < lfft; i++) {
+		float re  =  work_buf[2*i+0];
+		float im  = -work_buf[2*i+1];
+		float twr = cosf(2.0f * (float)M_PI * i / (lfft * 4.0f));
+		float twi = sinf(2.0f * (float)M_PI * i / (lfft * 4.0f));
+		output_buf[i]      =   re * twr - im * twi;
+		output_buf[lfft+i] = -(re * twi + im * twr);
+	}
+}
 
 static int modfreqoffsetreal_init(struct fftset_fft *fft, struct fftset_vec **veclist, struct cop_salloc_iface *alloc, unsigned complex_len)
 {
-	static const float off = (float)(-M_PI * 0.125);
-	unsigned i;
-	float *twid;
-	float scale;
+#if V4F_EXISTS
+	if (complex_len % 16 == 0) {
+		static const float off = (float)(-M_PI * 0.125);
+		unsigned i;
+		float *twid;
+		float scale;
 
-	assert((complex_len % 4) == 0);
+		/* Create inner passes. */
+		fft->next_compat = fastconv_get_inner_pass(veclist, alloc, complex_len / 4, 4);
+		if (fft->next_compat == NULL)
+			return -1;
 
-	/* Create inner passes. */
-	fft->next_compat = fastconv_get_inner_pass(veclist, alloc, complex_len / 4, 4);
-	if (fft->next_compat == NULL)
-		return -1;
+		/* Create memory for twiddle coefficients. */
+		twid = cop_salloc(alloc, sizeof(float) * 56 * complex_len / 16, 64);
+		if (twid == NULL)
+			return -1;
 
-	/* Create memory for twiddle coefficients. */
-	twid = cop_salloc(alloc, sizeof(float) * 56 * complex_len / 16, 64);
-	if (twid == NULL)
-		return -1;
+		scale = off / (float)(complex_len / 4);
 
-	scale = off / (float)(complex_len / 4);
+		for (i = 0; i < complex_len / 4; i++) {
+			float  fi            = i*scale;
+			float *tp            = twid + ((i % VEC_V4F_WIDTH) + (i / VEC_V4F_WIDTH)*14*VEC_V4F_WIDTH);
+			tp[0*VEC_V4F_WIDTH]  = cosf(fi+(0.0f*off));
+			tp[1*VEC_V4F_WIDTH]  = sinf(fi+(0.0f*off));
+			tp[2*VEC_V4F_WIDTH]  = cosf(fi+(1.0f*off));
+			tp[3*VEC_V4F_WIDTH]  = sinf(fi+(1.0f*off));
+			tp[4*VEC_V4F_WIDTH]  = cosf(fi+(2.0f*off));
+			tp[5*VEC_V4F_WIDTH]  = sinf(fi+(2.0f*off));
+			tp[6*VEC_V4F_WIDTH]  = cosf(fi+(3.0f*off));
+			tp[7*VEC_V4F_WIDTH]  = sinf(fi+(3.0f*off));
+			tp[8*VEC_V4F_WIDTH]  = cosf(fi * 4.0f * 1.0f);
+			tp[9*VEC_V4F_WIDTH]  = sinf(fi * 4.0f * 1.0f);
+			tp[10*VEC_V4F_WIDTH] = cosf(fi * 4.0f * 2.0f);
+			tp[11*VEC_V4F_WIDTH] = sinf(fi * 4.0f * 2.0f);
+			tp[12*VEC_V4F_WIDTH] = cosf(fi * 4.0f * 3.0f);
+			tp[13*VEC_V4F_WIDTH] = sinf(fi * 4.0f * 3.0f);
+		}
 
-	for (i = 0; i < complex_len / 4; i++) {
-		float  fi            = i*scale;
-		float *tp            = twid + ((i % VEC_V4F_WIDTH) + (i / VEC_V4F_WIDTH)*14*VEC_V4F_WIDTH);
-		tp[0*VEC_V4F_WIDTH]  = cosf(fi+(0.0f*off));
-		tp[1*VEC_V4F_WIDTH]  = sinf(fi+(0.0f*off));
-		tp[2*VEC_V4F_WIDTH]  = cosf(fi+(1.0f*off));
-		tp[3*VEC_V4F_WIDTH]  = sinf(fi+(1.0f*off));
-		tp[4*VEC_V4F_WIDTH]  = cosf(fi+(2.0f*off));
-		tp[5*VEC_V4F_WIDTH]  = sinf(fi+(2.0f*off));
-		tp[6*VEC_V4F_WIDTH]  = cosf(fi+(3.0f*off));
-		tp[7*VEC_V4F_WIDTH]  = sinf(fi+(3.0f*off));
-		tp[8*VEC_V4F_WIDTH]  = cosf(fi * 4.0f * 1.0f);
-		tp[9*VEC_V4F_WIDTH]  = sinf(fi * 4.0f * 1.0f);
-		tp[10*VEC_V4F_WIDTH] = cosf(fi * 4.0f * 2.0f);
-		tp[11*VEC_V4F_WIDTH] = sinf(fi * 4.0f * 2.0f);
-		tp[12*VEC_V4F_WIDTH] = cosf(fi * 4.0f * 3.0f);
-		tp[13*VEC_V4F_WIDTH] = sinf(fi * 4.0f * 3.0f);
+		fft->main_twiddle = twid;
+		fft->get_kern     = modfreqoffsetreal_get_kernel_v4f;
+		fft->fwd          = modfreqoffsetreal_forward_v4f;
+		fft->inv          = modfreqoffsetreal_inverse_v4f;
+		fft->conv         = modfreqoffsetreal_conv_v4f;
 	}
+	else
+#endif
+	{
+		fft->next_compat = fastconv_get_inner_pass(veclist, alloc, complex_len, 1);
+		if (fft->next_compat == NULL)
+			return -1;
 
-	fft->main_twiddle = twid;
-	fft->get_kern     = modfreqoffsetreal_get_kernel;
-	fft->fwd          = modfreqoffsetreal_forward;
-	fft->inv          = modfreqoffsetreal_inverse;
-	fft->conv         = modfreqoffsetreal_conv;
+		fft->main_twiddle = NULL;
+		fft->get_kern     = modfreqoffsetreal_get_kernel_v1f;
+		fft->fwd          = modfreqoffsetreal_forward_v1f;
+		fft->inv          = modfreqoffsetreal_inverse_v1f;
+		fft->conv         = modfreqoffsetreal_conv_v1f;
+	}
 
 	return 0;
 }

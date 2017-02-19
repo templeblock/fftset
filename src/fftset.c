@@ -31,14 +31,6 @@
 #include "cop/cop_alloc.h"
 #include "fftset_modulation.h"
 
-/* To be removed when the vector FFT defines the correct function for
- * performing convolution - currently this code uses a v4f for the
- * inner FFT multiplication which will be wrong when AVX inner passes start
- * happening. */
-#ifndef V4F_EXISTS
-#error "this implementation requires a v4f type"
-#endif
-
 #define FASTCONV_REAL_LEN_MULTIPLE (32)
 
 void
