@@ -248,16 +248,16 @@ static int modcplx_init(struct fftset_fft *fft, struct fftset_vec **veclist, str
 		return -1;
 
 	fft->main_twiddle = NULL;
+	fft->get_kern     = modcplx_get_kernel;
+	fft->fwd          = modcplx_forward;
+	fft->inv          = modcplx_inverse;
+	fft->conv         = modcplx_conv;
 
 	return 0;
 }
 
 static const struct fftset_modulation FFTSET_MODULATION_COMPLEX_DEF =
 {   modcplx_init
-,   modcplx_get_kernel
-,   modcplx_forward
-,   modcplx_inverse
-,   modcplx_conv
 };
 
 const struct fftset_modulation *FFTSET_MODULATION_COMPLEX = &FFTSET_MODULATION_COMPLEX_DEF;

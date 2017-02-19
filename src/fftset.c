@@ -48,7 +48,7 @@ fftset_fft_conv_get_kernel
 	,const float                *input_buf
 	)
 {
-	first_pass->modulator->get_kern(first_pass, output_buf, input_buf);
+	first_pass->get_kern(first_pass, output_buf, input_buf);
 }
 
 void
@@ -60,7 +60,7 @@ fftset_fft_conv
 	,float                      *work_buf
 	)
 {
-	first_pass->modulator->conv(first_pass, output_buf, input_buf, kernel_buf, work_buf);
+	first_pass->conv(first_pass, output_buf, input_buf, kernel_buf, work_buf);
 }
 
 void
@@ -71,7 +71,7 @@ fftset_fft_forward
 	,float                      *work_buf
 	)
 {
-	first_pass->modulator->fwd(first_pass, output_buf, input_buf, work_buf);
+	first_pass->fwd(first_pass, output_buf, input_buf, work_buf);
 }
 
 void
@@ -82,7 +82,7 @@ fftset_fft_inverse
 	,float                      *work_buf
 	)
 {
-	first_pass->modulator->inv(first_pass, output_buf, input_buf, work_buf);
+	first_pass->inv(first_pass, output_buf, input_buf, work_buf);
 }
 
 int fftset_init(struct fftset *fc)

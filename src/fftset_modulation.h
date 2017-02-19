@@ -27,10 +27,6 @@ struct fftset_fft;
 
 struct fftset_modulation {
 	int          (*init)(struct fftset_fft *fft, struct fftset_vec **veclist, struct cop_salloc_iface *alloc, unsigned complex_len);
-	void         (*get_kern)(const struct fftset_fft *fft, float *out, const float *in);
-	void         (*fwd)(const struct fftset_fft *fft, float *out, const float *in, float *work);
-	void         (*inv)(const struct fftset_fft *fft, float *out, const float *in, float *work);
-	void         (*conv)(const struct fftset_fft *fft, float *out, const float *in, const float *kern, float *work);
 };
 
 struct fftset_fft {
@@ -41,8 +37,12 @@ struct fftset_fft {
 	struct fftset_fft              *next;
 
 	/* You are free to modify the rest of the members to suit your needs. */
-	const float                    *main_twiddle;
 	const struct fftset_vec        *next_compat;
+	const float                    *main_twiddle;
+	void                          (*get_kern)(const struct fftset_fft *fft, float *out, const float *in);
+	void                          (*fwd)(const struct fftset_fft *fft, float *out, const float *in, float *work);
+	void                          (*inv)(const struct fftset_fft *fft, float *out, const float *in, float *work);
+	void                          (*conv)(const struct fftset_fft *fft, float *out, const float *in, const float *kern, float *work);
 };
 
 #endif /* FFTSET_MODULATION_H */
