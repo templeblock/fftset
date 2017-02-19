@@ -27,6 +27,8 @@ struct fftset_vec {
 	unsigned                    lfft_div_radix;
 	unsigned                    radix;
 	unsigned                    cost;
+	unsigned                    vec_width;
+
 	const float                *twiddle;
 
 	/* The best next pass to use (this pass will have:
@@ -50,6 +52,7 @@ fastconv_get_inner_pass
 	(struct fftset_vec       **list
 	,struct cop_salloc_iface  *alloc
 	,unsigned                  length
+	,unsigned                  vec_len
 	);
 
 void

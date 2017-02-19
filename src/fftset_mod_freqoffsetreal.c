@@ -356,7 +356,7 @@ static int modfreqoffsetreal_init(struct fftset_fft *fft, struct fftset_vec **ve
 	assert((complex_len % 4) == 0);
 
 	/* Create inner passes. */
-	fft->next_compat = fastconv_get_inner_pass(veclist, alloc, complex_len / 4);
+	fft->next_compat = fastconv_get_inner_pass(veclist, alloc, complex_len / 4, 4);
 	if (fft->next_compat == NULL)
 		return -1;
 

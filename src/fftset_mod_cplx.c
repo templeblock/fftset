@@ -29,10 +29,7 @@
 #include <math.h>
 #include <string.h>
 
-#ifndef V4F_EXISTS
-#error "this implementation requires a v4f type"
-#endif
-
+#if V4F_EXISTS
 static void modcplx_forward_first(float *vec_output, const float *input, const float *coefs, unsigned fft_len)
 {
 	unsigned j;
@@ -156,10 +153,10 @@ static void modcplx_inverse_final(float *vec_output, const float *input, const f
 
 static
 void
-modcplx_get_kernel
-	(const struct fftset_fft    *first_pass
-	,float                      *output_buf
-	,const float                *input_buf
+modcplx_get_kernel_v4f
+	(const struct fftset_fft *first_pass
+	,float                   *output_buf
+	,const float             *input_buf
 	)
 {
 	modcplx_forward_first(output_buf, input_buf, first_pass->main_twiddle, first_pass->lfft);
@@ -168,12 +165,12 @@ modcplx_get_kernel
 
 static
 void
-modcplx_conv
+modcplx_conv_v4f
 	(const struct fftset_fft *first_pass
-	,float                      *output_buf
-	,const float                *input_buf
-	,const float                *kernel_buf
-	,float                      *work_buf
+	,float                   *output_buf
+	,const float             *input_buf
+	,const float             *kernel_buf
+	,float                   *work_buf
 	)
 {
 	modcplx_forward_first(work_buf, input_buf, first_pass->main_twiddle, first_pass->lfft);
@@ -183,7 +180,7 @@ modcplx_conv
 
 static
 void
-modcplx_forward
+modcplx_forward_v4f
 	(const struct fftset_fft *first_pass
 	,float                   *output_buf
 	,const float             *input_buf
@@ -212,7 +209,7 @@ modcplx_forward
 
 static
 void
-modcplx_inverse
+modcplx_inverse_v4f
 	(const struct fftset_fft    *first_pass
 	,float                      *output_buf
 	,const float                *input_buf
@@ -240,18 +237,111 @@ modcplx_inverse
 
 	modcplx_inverse_final(output_buf, work_buf, first_pass->main_twiddle, lfft);
 }
+#endif
+
+static
+void
+modcplx_get_kernel_v1f
+	(const struct fftset_fft *first_pass
+	,float                   *output_buf
+	,const float             *input_buf
+	)
+{
+	memcpy(output_buf, input_buf, sizeof(float) * first_pass->lfft * 2);
+	fftset_vec_kern(first_pass->next_compat, 1, output_buf);
+}
+
+static
+void
+modcplx_conv_v1f
+	(const struct fftset_fft *first_pass
+	,float                   *output_buf
+	,const float             *input_buf
+	,const float             *kernel_buf
+	,float                   *work_buf
+	)
+{
+	const unsigned lfft = first_pass->lfft;
+	unsigned i;
+	memcpy(work_buf, input_buf, sizeof(float) * lfft * 2);
+	fftset_vec_conv(first_pass->next_compat, 1, work_buf, kernel_buf);
+	for (i = 0; i < lfft; i++) {
+		output_buf[2*i+0] =  work_buf[2*i+0];
+		output_buf[2*i+1] = -work_buf[2*i+1];
+	}
+}
+
+static
+void
+modcplx_forward_v1f
+	(const struct fftset_fft *first_pass
+	,float                   *output_buf
+	,const float             *input_buf
+	,float                   *work_buf
+	)
+{
+	const unsigned lfft = first_pass->lfft;
+	memcpy(work_buf, input_buf, sizeof(float) * lfft * 2);
+	input_buf = fftset_vec_stockham(first_pass->next_compat, 1, work_buf, output_buf);
+	if (input_buf != output_buf)
+		memcpy(output_buf, work_buf, sizeof(float) * lfft * 2);
+}
+
+
+static
+void
+modcplx_inverse_v1f
+	(const struct fftset_fft    *first_pass
+	,float                      *output_buf
+	,const float                *input_buf
+	,float                      *work_buf
+	)
+{
+	const unsigned lfft = first_pass->lfft;
+	unsigned i;
+	for (i = 0; i < lfft; i++) {
+		work_buf[2*i+0] =  input_buf[2*i+0];
+		work_buf[2*i+1] = -input_buf[2*i+1];
+	}
+	input_buf = fftset_vec_stockham(first_pass->next_compat, 1, work_buf, output_buf);
+	if (input_buf == output_buf) {
+		for (i = 0; i < lfft; i++) {
+			output_buf[2*i+0] =  output_buf[2*i+0];
+			output_buf[2*i+1] = -output_buf[2*i+1];
+		}
+	} else {
+		for (i = 0; i < lfft; i++) {
+			output_buf[2*i+0] =  work_buf[2*i+0];
+			output_buf[2*i+1] = -work_buf[2*i+1];
+		}
+	}
+}
 
 static int modcplx_init(struct fftset_fft *fft, struct fftset_vec **veclist, struct cop_salloc_iface *alloc, unsigned complex_len)
 {
-	fft->next_compat = fastconv_get_inner_pass(veclist, alloc, complex_len / 4);
-	if (fft->next_compat == NULL)
-		return -1;
-
-	fft->main_twiddle = NULL;
-	fft->get_kern     = modcplx_get_kernel;
-	fft->fwd          = modcplx_forward;
-	fft->inv          = modcplx_inverse;
-	fft->conv         = modcplx_conv;
+#if V4F_EXISTS
+	if (complex_len > 4 && (complex_len % 4) == 0) {
+		fft->next_compat = fastconv_get_inner_pass(veclist, alloc, complex_len / 4, 4);
+		if (fft->next_compat == NULL)
+			return -1;
+		fft->main_twiddle = NULL;
+		fft->get_kern     = modcplx_get_kernel_v4f;
+		fft->fwd          = modcplx_forward_v4f;
+		fft->inv          = modcplx_inverse_v4f;
+		fft->conv         = modcplx_conv_v4f;
+	}
+	else
+#endif
+	{
+		fft->next_compat = fastconv_get_inner_pass(veclist, alloc, complex_len, 1);
+		if (fft->next_compat == NULL)
+			return -1;
+		fft->main_twiddle = NULL;
+		fft->get_kern     = modcplx_get_kernel_v1f;
+		fft->fwd          = modcplx_forward_v1f;
+		fft->inv          = modcplx_inverse_v1f;
+		fft->conv         = modcplx_conv_v1f;
+	}
 
 	return 0;
 }
