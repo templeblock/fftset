@@ -23,8 +23,8 @@
 #endif
 
 #include "fftset_modulation.h"
-#include "cop/cop_vec.h"
 #include "fftset_vec.h"
+#include "cop/cop_vec.h"
 #include <assert.h>
 #include <math.h>
 #include <string.h>
@@ -241,9 +241,19 @@ modcplx_inverse
 	modcplx_inverse_final(output_buf, work_buf, first_pass->main_twiddle, lfft);
 }
 
+static int modcplx_init(struct fftset_fft *fft, struct fftset_vec **veclist, struct cop_salloc_iface *alloc, unsigned complex_len)
+{
+	fft->next_compat = fastconv_get_inner_pass(veclist, alloc, complex_len / 4);
+	if (fft->next_compat == NULL)
+		return -1;
+
+	fft->main_twiddle = NULL;
+
+	return 0;
+}
+
 static const struct fftset_modulation FFTSET_MODULATION_COMPLEX_DEF =
-{   4
-,   NULL
+{   modcplx_init
 ,   modcplx_get_kernel
 ,   modcplx_forward
 ,   modcplx_inverse

@@ -21,15 +21,12 @@
 #ifndef FFTSET_MODULATION_H
 #define FFTSET_MODULATION_H
 
-#include "cop/cop_alloc.h"
+#include "fftset_vec.h"
 
 struct fftset_fft;
 
 struct fftset_modulation {
-	unsigned       radix;
-
-	const float *(*get_twid)(struct cop_salloc_iface *alloc, unsigned lfft_div_radix);
-
+	int          (*init)(struct fftset_fft *fft, struct fftset_vec **veclist, struct cop_salloc_iface *alloc, unsigned complex_len);
 	void         (*get_kern)(const struct fftset_fft *fft, float *out, const float *in);
 	void         (*fwd)(const struct fftset_fft *fft, float *out, const float *in, float *work);
 	void         (*inv)(const struct fftset_fft *fft, float *out, const float *in, float *work);

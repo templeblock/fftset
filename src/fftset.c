@@ -30,7 +30,6 @@
 #include "cop/cop_vec.h"
 #include "cop/cop_alloc.h"
 #include "fftset_modulation.h"
-#include "fftset_vec.h"
 
 /* To be removed when the vector FFT defines the correct function for
  * performing convolution - currently this code uses a v4f for the
@@ -121,18 +120,7 @@ const struct fftset_fft *fftset_create_fft(struct fftset *fc, const struct fftse
 	if (pass == NULL)
 		return NULL;
 
-	/* Create memory for twiddle coefficients. */
-	if (modulation->get_twid != NULL) {
-		pass->main_twiddle = modulation->get_twid(&(fc->mem), complex_bins);
-		if (pass->main_twiddle == NULL)
-			return NULL;
-	} else {
-		pass->main_twiddle = NULL;
-	}
-
-	/* Create inner passes recursively. */
-	pass->next_compat = fastconv_get_inner_pass(&(fc->first_inner), &(fc->mem), complex_bins / modulation->radix);
-	if (pass->next_compat == NULL)
+	if (modulation->init(pass, &(fc->first_inner), &(fc->mem), complex_bins))
 		return NULL;
 
 	pass->lfft          = complex_bins;

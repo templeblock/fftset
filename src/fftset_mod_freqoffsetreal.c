@@ -247,35 +247,49 @@ static void modfreqoffsetreal_inverse_final(float *output, const float *vec_inpu
 	}
 }
 
-static const float *modfreqoffsetreal_get_twid(struct cop_salloc_iface *alloc, unsigned length)
+static int modfreqoffsetreal_init(struct fftset_fft *fft, struct fftset_vec **veclist, struct cop_salloc_iface *alloc, unsigned complex_len)
 {
-	float *twid = cop_salloc(alloc, sizeof(float) * 56 * length / 16, 64);
-	assert((length % 4) == 0);
-	if (twid != NULL) {
-		unsigned i;
-		const float off   = (float)(-M_PI * 0.125);
-		const float scale = off / (float)(length / 4);
+	static const float off = (float)(-M_PI * 0.125);
+	unsigned i;
+	float *twid;
+	float scale;
 
-		for (i = 0; i < length / 4; i++) {
-			float  fi        = i*scale;
-			float *tp        = twid + ((i % VEC_V4F_WIDTH) + (i / VEC_V4F_WIDTH)*14*VEC_V4F_WIDTH);
-			tp[0*VEC_V4F_WIDTH]  = cosf(fi+(0.0f*off));
-			tp[1*VEC_V4F_WIDTH]  = sinf(fi+(0.0f*off));
-			tp[2*VEC_V4F_WIDTH]  = cosf(fi+(1.0f*off));
-			tp[3*VEC_V4F_WIDTH]  = sinf(fi+(1.0f*off));
-			tp[4*VEC_V4F_WIDTH]  = cosf(fi+(2.0f*off));
-			tp[5*VEC_V4F_WIDTH]  = sinf(fi+(2.0f*off));
-			tp[6*VEC_V4F_WIDTH]  = cosf(fi+(3.0f*off));
-			tp[7*VEC_V4F_WIDTH]  = sinf(fi+(3.0f*off));
-			tp[8*VEC_V4F_WIDTH]  = cosf(fi * 4.0f * 1.0f);
-			tp[9*VEC_V4F_WIDTH]  = sinf(fi * 4.0f * 1.0f);
-			tp[10*VEC_V4F_WIDTH] = cosf(fi * 4.0f * 2.0f);
-			tp[11*VEC_V4F_WIDTH] = sinf(fi * 4.0f * 2.0f);
-			tp[12*VEC_V4F_WIDTH] = cosf(fi * 4.0f * 3.0f);
-			tp[13*VEC_V4F_WIDTH] = sinf(fi * 4.0f * 3.0f);
-		}
+	assert((complex_len % 4) == 0);
+
+	/* Create inner passes. */
+	fft->next_compat = fastconv_get_inner_pass(veclist, alloc, complex_len / 4);
+	if (fft->next_compat == NULL)
+		return -1;
+
+	/* Create memory for twiddle coefficients. */
+	twid = cop_salloc(alloc, sizeof(float) * 56 * complex_len / 16, 64);
+	if (twid == NULL)
+		return -1;
+
+	scale = off / (float)(complex_len / 4);
+
+	for (i = 0; i < complex_len / 4; i++) {
+		float  fi            = i*scale;
+		float *tp            = twid + ((i % VEC_V4F_WIDTH) + (i / VEC_V4F_WIDTH)*14*VEC_V4F_WIDTH);
+		tp[0*VEC_V4F_WIDTH]  = cosf(fi+(0.0f*off));
+		tp[1*VEC_V4F_WIDTH]  = sinf(fi+(0.0f*off));
+		tp[2*VEC_V4F_WIDTH]  = cosf(fi+(1.0f*off));
+		tp[3*VEC_V4F_WIDTH]  = sinf(fi+(1.0f*off));
+		tp[4*VEC_V4F_WIDTH]  = cosf(fi+(2.0f*off));
+		tp[5*VEC_V4F_WIDTH]  = sinf(fi+(2.0f*off));
+		tp[6*VEC_V4F_WIDTH]  = cosf(fi+(3.0f*off));
+		tp[7*VEC_V4F_WIDTH]  = sinf(fi+(3.0f*off));
+		tp[8*VEC_V4F_WIDTH]  = cosf(fi * 4.0f * 1.0f);
+		tp[9*VEC_V4F_WIDTH]  = sinf(fi * 4.0f * 1.0f);
+		tp[10*VEC_V4F_WIDTH] = cosf(fi * 4.0f * 2.0f);
+		tp[11*VEC_V4F_WIDTH] = sinf(fi * 4.0f * 2.0f);
+		tp[12*VEC_V4F_WIDTH] = cosf(fi * 4.0f * 3.0f);
+		tp[13*VEC_V4F_WIDTH] = sinf(fi * 4.0f * 3.0f);
 	}
-	return twid;
+
+	fft->main_twiddle = twid;
+
+	return 0;
 }
 
 static
@@ -378,8 +392,7 @@ modfreqoffsetreal_inverse
 }
 
 static const struct fftset_modulation FFTSET_MODULATION_FREQ_OFFSET_REAL_DEF =
-{   4
-,   modfreqoffsetreal_get_twid
+{   modfreqoffsetreal_init
 ,   modfreqoffsetreal_get_kernel
 ,   modfreqoffsetreal_forward
 ,   modfreqoffsetreal_inverse
