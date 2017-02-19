@@ -849,21 +849,21 @@ static \
 void \
 fftset_vec_mulconj_ ## vtyp_(ctyp_ *work_buf, const ctyp_ *kernel_buf, unsigned nb_vec_fft) \
 { \
-	unsigned i; \
-	for (i = 0; i < nb_vec_fft; i++) { \
-		vtyp_ dr =               vtyp_ ## _ld(work_buf   + (vwidth_)*2*i+0); \
-		vtyp_ di = vtyp_ ## _neg(vtyp_ ## _ld(work_buf   + (vwidth_)*2*i+(vwidth_))); \
-		vtyp_ cr =               vtyp_ ## _ld(kernel_buf + (vwidth_)*2*i+0); \
-		vtyp_ ci =               vtyp_ ## _ld(kernel_buf + (vwidth_)*2*i+(vwidth_)); \
-		vtyp_ ra = vtyp_ ## _mul(dr, cr); \
-		vtyp_ rb = vtyp_ ## _mul(di, ci); \
-		vtyp_ ia = vtyp_ ## _mul(di, cr); \
-		vtyp_ ib = vtyp_ ## _mul(dr, ci); \
-		vtyp_ ro = vtyp_ ## _add(ra, rb); \
-		vtyp_ io = vtyp_ ## _sub(ia, ib); \
-		vtyp_ ## _st(work_buf + (vwidth_)*2*i + 0, ro); \
-		vtyp_ ## _st(work_buf + (vwidth_)*2*i + (vwidth_), io); \
-	} \
+	do { \
+		vtyp_ dr, di, cr, ci, ra, rb, ia, ib, ro, io; \
+		vtyp_mac_ ## _LD2(dr, di, work_buf); \
+		vtyp_mac_ ## _LD2(cr, ci, kernel_buf); \
+		di = vtyp_ ## _neg(di); \
+		ra = vtyp_ ## _mul(dr, cr); \
+		ib = vtyp_ ## _mul(dr, ci); \
+		rb = vtyp_ ## _mul(di, ci); \
+		ia = vtyp_ ## _mul(di, cr); \
+		ro = vtyp_ ## _add(ra, rb); \
+		io = vtyp_ ## _sub(ia, ib); \
+		vtyp_mac_ ## _ST2(work_buf, ro, io); \
+		work_buf   += (vwidth_)*2; \
+		kernel_buf += (vwidth_)*2; \
+	} while (--nb_vec_fft); \
 }
 
 VECRADIX2PASSES(v1f, V1F, float, 1)
