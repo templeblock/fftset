@@ -987,10 +987,9 @@ struct fft_graph_node {
 	unsigned                       cost; /* zero indicates the cost is not set. */
 };
 
-static struct fftset_vec *fastconv_find_pass(const struct fftset *fc, unsigned length)
+static const struct fftset_vec *fastconv_find_pass(const struct fftset_vec *pass, unsigned length)
 {
-	struct fftset_vec *pass;
-	for (pass = fc->first_inner; pass != NULL; pass = pass->next) {
+	for (; pass != NULL; pass = pass->next) {
 		if (pass->lfft_div_radix*pass->radix == length)
 			return pass;
 		if (pass->lfft_div_radix*pass->radix < length)
@@ -1058,17 +1057,14 @@ build_float_graph
 	return best->cost != 0;
 }
 
-#include <stdio.h>
-
-static struct fftset_vec *fastconv_add_passes(struct fftset *fc, struct fft_graph_node *passes)
+static struct fftset_vec *fastconv_add_passes(struct fftset_vec **list, struct cop_salloc_iface *alloc, struct fft_graph_node *passes)
 {
 	unsigned            pass_radix  = passes->pass->radix;
 	unsigned            pass_length = passes->length;
 	struct fftset_vec  *pass;
-	struct fftset_vec **ipos;
 
 	/* Create new inner pass. */
-	pass = cop_salloc(&(fc->mem), sizeof(*pass), 0);
+	pass = cop_salloc(alloc, sizeof(*pass), 0);
 	if (pass == NULL)
 		return NULL;
 
@@ -1085,7 +1081,7 @@ static struct fftset_vec *fastconv_add_passes(struct fftset *fc, struct fft_grap
 	} else {
 		unsigned j;
 		float *twid;
-		twid = cop_salloc(&(fc->mem), sizeof(float) * 2 * (pass_radix - 1) * pass_length / pass_radix, 64);
+		twid = cop_salloc(alloc, sizeof(float) * 2 * (pass_radix - 1) * pass_length / pass_radix, 64);
 		pass->twiddle        = twid;
 		pass->lfft_div_radix = pass_length / pass_radix;
 		pass->radix          = pass_radix;
@@ -1094,9 +1090,9 @@ static struct fftset_vec *fastconv_add_passes(struct fftset *fc, struct fft_grap
 		pass->dit            = passes->pass->dit;
 		pass->dif_stockham   = passes->pass->stock;
 		pass->mulconj        = passes->pass->mulconj;
-		pass->next_compat    = fastconv_find_pass(fc, pass->lfft_div_radix);
+		pass->next_compat    = fastconv_find_pass(*list, pass->lfft_div_radix);
 		if (pass->next_compat == NULL)
-			pass->next_compat = fastconv_add_passes(fc, passes + 1);
+			pass->next_compat = fastconv_add_passes(list, alloc, passes + 1);
 		if (pass->next_compat == NULL)
 			return NULL;
 		for (j = 0; j < pass_length / pass_radix; j++) {
@@ -1109,23 +1105,27 @@ static struct fftset_vec *fastconv_add_passes(struct fftset *fc, struct fft_grap
 	}
 
 	/* Insert into list. */
-	ipos = &(fc->first_inner);
-	while (*ipos != NULL && pass_length < (*ipos)->lfft_div_radix * (*ipos)->radix) {
-		ipos = &(*ipos)->next;
+	while (*list != NULL && pass_length < (*list)->lfft_div_radix * (*list)->radix) {
+		list = &(*list)->next;
 	}
-	pass->next = *ipos;
-	*ipos = pass;
+	pass->next = *list;
+	*list = pass;
 
 	return pass;
 }
 
-struct fftset_vec *fastconv_get_inner_pass(struct fftset *fc, unsigned length)
+const struct fftset_vec *
+fastconv_get_inner_pass
+	(struct fftset_vec       **list
+	,struct cop_salloc_iface  *alloc
+	,unsigned                  length
+	)
 {
-	struct fftset_vec     *pass;
-	struct fft_graph_node  passes[32];
+	const struct fftset_vec *pass;
+	struct fft_graph_node    passes[32];
 
 	/* Search for the pass. */
-	pass = fastconv_find_pass(fc, length);
+	pass = fastconv_find_pass(*list, length);
 	if (pass != NULL)
 		return pass;
 
@@ -1142,7 +1142,7 @@ struct fftset_vec *fastconv_get_inner_pass(struct fftset *fc, unsigned length)
 	}
 #endif
 
-	return fastconv_add_passes(fc, passes);
+	return fastconv_add_passes(list, alloc, passes);
 }
 
 #define FASTCONV_MAX_PASSES (24)

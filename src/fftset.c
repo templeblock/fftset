@@ -131,7 +131,7 @@ const struct fftset_fft *fftset_create_fft(struct fftset *fc, const struct fftse
 	}
 
 	/* Create inner passes recursively. */
-	pass->next_compat = fastconv_get_inner_pass(fc, complex_bins / modulation->radix);
+	pass->next_compat = fastconv_get_inner_pass(&(fc->first_inner), &(fc->mem), complex_bins / modulation->radix);
 	if (pass->next_compat == NULL)
 		return NULL;
 

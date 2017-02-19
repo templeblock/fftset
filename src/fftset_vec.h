@@ -21,7 +21,7 @@
 #ifndef FFTSET_VEC_H
 #define FFTSET_VEC_H
 
-#include "fftset/fftset.h"
+#include "cop/cop_alloc.h"
 
 struct fftset_vec {
 	unsigned                    lfft_div_radix;
@@ -45,9 +45,10 @@ struct fftset_vec {
 	struct fftset_vec       *next;
 };
 
-struct fftset_vec *
+const struct fftset_vec *
 fastconv_get_inner_pass
-	(struct fftset            *fc
+	(struct fftset_vec       **list
+	,struct cop_salloc_iface  *alloc
 	,unsigned                  length
 	);
 
