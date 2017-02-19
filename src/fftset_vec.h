@@ -39,10 +39,36 @@ struct fftset_vec {
 	void (*dif)(float *work_buf, unsigned nfft, unsigned lfft, const float *twid);
 	void (*dif_stockham)(float *out, const float *in, const float *twid, unsigned ncol, unsigned nrow_div_radix);
 
+	void (*mulconj)(float *work, const float *kern, unsigned nb_vec_fft);
+
 	/* Position in list of all passes of this type (outer or inner pass). */
 	struct fftset_vec       *next;
 };
 
 struct fftset_vec *fastconv_get_inner_pass(struct fftset *fc, unsigned length);
+
+void
+fftset_vec_kern
+	(const struct fftset_vec  *vec_pass
+	,unsigned                  nb_vec_fft
+	,float                    *work_buf
+	);
+
+/* The output will be conjugated! */
+void
+fftset_vec_conv
+	(const struct fftset_vec *first_pass
+	,unsigned                 nb_vec_fft
+	,float                   *work_buf
+	,const float             *kernel_buf
+	);
+
+float *
+fftset_vec_stockham
+	(const struct fftset_vec  *vec_pass
+	,unsigned                  nb_vec_fft
+	,float                    *input_buf
+	,float                    *temp_buf
+	);
 
 #endif /* FFTSET_VEC_H */

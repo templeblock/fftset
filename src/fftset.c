@@ -70,9 +70,6 @@ struct fftset_fft {
 };
 
 #define FASTCONV_REAL_LEN_MULTIPLE (32)
-#define FASTCONV_MAX_PASSES        (24)
-
-#define VEC_V4F_WIDTH (4) /* To be deleted. */
 
 void
 fftset_fft_conv_get_kernel
@@ -81,15 +78,8 @@ fftset_fft_conv_get_kernel
 	,const float                *input_buf
 	)
 {
-	const struct fftset_vec *vec_pass;
-	unsigned nfft = first_pass->radix / VEC_V4F_WIDTH;
-
 	first_pass->forward(output_buf, input_buf, first_pass->main_twiddle, first_pass->lfft);
-
-	for (vec_pass = first_pass->next_compat; vec_pass != NULL; vec_pass = vec_pass->next_compat) {
-		vec_pass->dif(output_buf, nfft, vec_pass->lfft_div_radix, vec_pass->twiddle);
-		nfft *= vec_pass->radix;
-	}
+	fftset_vec_kern(first_pass->next_compat, 1, output_buf);
 }
 
 void
@@ -101,43 +91,8 @@ fftset_fft_conv
 	,float                      *work_buf
 	)
 {
-	const struct fftset_vec *pass_stack[FASTCONV_MAX_PASSES];
-	const struct fftset_vec *vec_pass;
-	unsigned si = 0;
-	unsigned nfft = first_pass->radix / VEC_V4F_WIDTH;
-	unsigned i;
-
 	first_pass->forward(work_buf, input_buf, first_pass->main_twiddle, first_pass->lfft);
-
-	for (vec_pass = first_pass->next_compat; vec_pass != NULL; vec_pass = vec_pass->next_compat) {
-		assert(si < FASTCONV_MAX_PASSES);
-		pass_stack[si++] = vec_pass;
-		vec_pass->dif(work_buf, nfft, vec_pass->lfft_div_radix, vec_pass->twiddle);
-		nfft *= vec_pass->radix;
-	}
-
-	for (i = 0; i < nfft; i++) {
-		v4f dr =         v4f_ld(work_buf   + VEC_V4F_WIDTH*2*i+0);
-		v4f di = v4f_neg(v4f_ld(work_buf   + VEC_V4F_WIDTH*2*i+VEC_V4F_WIDTH));
-		v4f cr =         v4f_ld(kernel_buf + VEC_V4F_WIDTH*2*i+0);
-		v4f ci =         v4f_ld(kernel_buf + VEC_V4F_WIDTH*2*i+VEC_V4F_WIDTH);
-		v4f ra = v4f_mul(dr, cr);
-		v4f rb = v4f_mul(di, ci);
-		v4f ia = v4f_mul(di, cr);
-		v4f ib = v4f_mul(dr, ci);
-		v4f ro = v4f_add(ra, rb);
-		v4f io = v4f_sub(ia, ib);
-		v4f_st(work_buf + VEC_V4F_WIDTH*2*i + 0, ro);
-		v4f_st(work_buf + VEC_V4F_WIDTH*2*i + VEC_V4F_WIDTH, io);
-	}
-
-	while (si--) {
-		vec_pass = pass_stack[si];
-		nfft /= vec_pass->radix;
-		vec_pass->dit(work_buf, nfft, vec_pass->lfft_div_radix, vec_pass->twiddle);
-	}
-
-	assert(nfft == 1);
+	fftset_vec_conv(first_pass->next_compat, 1, work_buf, kernel_buf);
 	first_pass->reverse(output_buf, work_buf, first_pass->main_twiddle, first_pass->lfft);
 }
 
@@ -149,27 +104,17 @@ fftset_fft_forward
 	,float                      *work_buf
 	)
 {
-	const struct fftset_vec *vec_pass;
-	unsigned nfft = first_pass->radix / VEC_V4F_WIDTH;
-
 	first_pass->forward(work_buf, input_buf, first_pass->main_twiddle, first_pass->lfft);
-	
-	for (vec_pass = first_pass->next_compat; vec_pass != NULL; vec_pass = vec_pass->next_compat) {
-		float *tmp;
 
-		vec_pass->dif_stockham(output_buf, work_buf, vec_pass->twiddle, vec_pass->lfft_div_radix, nfft);
-		nfft      *= vec_pass->radix;
+	input_buf = fftset_vec_stockham(first_pass->next_compat, 1, work_buf, output_buf);
 
-		tmp        = output_buf;
-		output_buf = work_buf;
-		work_buf   = tmp;
+	if (input_buf == work_buf) {
+		first_pass->forward_reord(output_buf, work_buf, first_pass->reord_twiddle, first_pass->lfft);
+	} else {
+		assert(input_buf == output_buf);
+		memcpy(work_buf, output_buf, sizeof(float) * first_pass->lfft * 2);
+		first_pass->forward_reord(output_buf, work_buf, first_pass->reord_twiddle, first_pass->lfft);
 	}
-
-	first_pass->forward_reord(output_buf, work_buf, first_pass->reord_twiddle, first_pass->lfft);
-
-	/* We have no idea which buffer is which because of the reindexing. Copy
-	 * the output buffer into the work buffer. */
-	memcpy(work_buf, output_buf, sizeof(float) * first_pass->lfft * 2);
 }
 
 void
@@ -180,27 +125,17 @@ fftset_fft_inverse
 	,float                      *work_buf
 	)
 {
-	const struct fftset_vec *vec_pass;
-	unsigned nfft = first_pass->radix / VEC_V4F_WIDTH;
-
 	first_pass->reverse_reord(work_buf, input_buf, first_pass->reord_twiddle, first_pass->lfft);
 
-	for (vec_pass = first_pass->next_compat; vec_pass != NULL; vec_pass = vec_pass->next_compat) {
-		float *tmp;
+	input_buf = fftset_vec_stockham(first_pass->next_compat, 1, work_buf, output_buf);
 
-		vec_pass->dif_stockham(output_buf, work_buf, vec_pass->twiddle, vec_pass->lfft_div_radix, nfft);
-		nfft      *= vec_pass->radix;
-
-		tmp        = output_buf;
-		output_buf = work_buf;
-		work_buf   = tmp;
+	if (input_buf == work_buf) {
+		first_pass->reverse(output_buf, work_buf, first_pass->main_twiddle, first_pass->lfft);
+	} else {
+		assert(input_buf == output_buf);
+		memcpy(work_buf, output_buf, sizeof(float) * first_pass->lfft * 2);
+		first_pass->reverse(output_buf, work_buf, first_pass->main_twiddle, first_pass->lfft);
 	}
-
-	first_pass->reverse(output_buf, work_buf, first_pass->main_twiddle, first_pass->lfft);
-
-	/* We have no idea which buffer is which because of the reindexing. Copy
-	 * the output buffer into the work buffer. */
-	memcpy(work_buf, output_buf, sizeof(float) * first_pass->lfft * 2);
 }
 
 int fftset_init(struct fftset *fc)

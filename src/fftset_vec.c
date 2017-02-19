@@ -844,6 +844,28 @@ static COP_ATTR_ALWAYSINLINE void vtyp_ ## _dif_fft16_offset_o(const ctyp_ *in, 
 } \
 BUILD_INNER_PASSES(vtyp_, ctyp_, vwidth_, 16)
 
+#define BUILD_MULCONJ(vtyp_, vtyp_mac_, ctyp_, vwidth_) \
+static \
+void \
+fftset_vec_mulconj_ ## vtyp_(ctyp_ *work_buf, const ctyp_ *kernel_buf, unsigned nb_vec_fft) \
+{ \
+	unsigned i; \
+	for (i = 0; i < nb_vec_fft; i++) { \
+		vtyp_ dr =               vtyp_ ## _ld(work_buf   + (vwidth_)*2*i+0); \
+		vtyp_ di = vtyp_ ## _neg(vtyp_ ## _ld(work_buf   + (vwidth_)*2*i+(vwidth_))); \
+		vtyp_ cr =               vtyp_ ## _ld(kernel_buf + (vwidth_)*2*i+0); \
+		vtyp_ ci =               vtyp_ ## _ld(kernel_buf + (vwidth_)*2*i+(vwidth_)); \
+		vtyp_ ra = vtyp_ ## _mul(dr, cr); \
+		vtyp_ rb = vtyp_ ## _mul(di, ci); \
+		vtyp_ ia = vtyp_ ## _mul(di, cr); \
+		vtyp_ ib = vtyp_ ## _mul(dr, ci); \
+		vtyp_ ro = vtyp_ ## _add(ra, rb); \
+		vtyp_ io = vtyp_ ## _sub(ia, ib); \
+		vtyp_ ## _st(work_buf + (vwidth_)*2*i + 0, ro); \
+		vtyp_ ## _st(work_buf + (vwidth_)*2*i + (vwidth_), io); \
+	} \
+}
+
 VECRADIX2PASSES(v1f, V1F, float, 1)
 VECRADIX3PASSES(v1f, V1F, float, 1)
 VECRADIX4PASSES(v1f, V1F, float, 1)
@@ -851,6 +873,7 @@ VECRADIX5PASSES(v1f, V1F, float, 1)
 VECRADIX6PASSES(v1f, V1F, float, 1)
 VECRADIX8PASSES(v1f, V1F, float, 1)
 VECRADIX16PASSES(v1f, V1F, float, 1)
+BUILD_MULCONJ(v1f, V1F, float, 1)
 #if V4F_EXISTS
 VECRADIX2PASSES(v4f, V4F, float, 4)
 VECRADIX3PASSES(v4f, V4F, float, 4)
@@ -859,6 +882,7 @@ VECRADIX5PASSES(v4f, V4F, float, 4)
 VECRADIX6PASSES(v4f, V4F, float, 4)
 VECRADIX8PASSES(v4f, V4F, float, 4)
 VECRADIX16PASSES(v4f, V4F, float, 4)
+BUILD_MULCONJ(v4f, V4F, float, 4)
 #endif
 #if V8F_EXISTS
 VECRADIX2PASSES(v8f, V8F, float, 8)
@@ -868,6 +892,7 @@ VECRADIX5PASSES(v8f, V8F, float, 8)
 VECRADIX6PASSES(v8f, V8F, float, 8)
 VECRADIX8PASSES(v8f, V8F, float, 8)
 VECRADIX16PASSES(v8f, V8F, float, 8)
+BUILD_MULCONJ(v8f, V8F, float, 8)
 #endif
 
 #if 0
@@ -885,6 +910,7 @@ struct float_pass_radix {
 	unsigned   fito_vec_len;
 	unsigned   foti_vec_len;
 
+	void     (*mulconj)(float *work, const float *kern, unsigned nb_vec_fft);
 	void     (*inner)(float *work, unsigned nfft, unsigned lfft, const float *twid);
 	void     (*inner_stock)(float *out, const float *in, const float *twid, unsigned ncol, unsigned nrow_div_radix);
 	void     (*dif)(float *work, unsigned nfft, unsigned lfft, const float *twid);
@@ -896,6 +922,7 @@ struct float_pass_radix {
 {   radix_ \
 ,   vwidth_ \
 ,   foti_width_ \
+,   fftset_vec_mulconj_ ## vtyp_ \
 ,   fftset_ ## vtyp_ ## _r ## radix_ ## _inner \
 ,   fftset_ ## vtyp_ ## _r ## radix_ ## _inner_stock \
 ,   fftset_ ## vtyp_ ## _r ## radix_ ## _dif \
@@ -906,6 +933,7 @@ struct float_pass_radix {
 {   radix_ \
 ,   vwidth_ \
 ,   foti_width_ \
+,   fftset_vec_mulconj_ ## vtyp_ \
 ,   fftset_ ## vtyp_ ## _r ## radix_ ## _inner \
 ,   fftset_ ## vtyp_ ## _r ## radix_ ## _inner_stock \
 ,   NULL \
@@ -1052,6 +1080,7 @@ static struct fftset_vec *fastconv_add_passes(struct fftset *fc, struct fft_grap
 		pass->dif            = passes->pass->inner;
 		pass->dit            = passes->pass->inner;
 		pass->dif_stockham   = passes->pass->inner_stock;
+		pass->mulconj        = passes->pass->mulconj;
 		pass->next_compat    = NULL;
 	} else {
 		unsigned j;
@@ -1064,6 +1093,7 @@ static struct fftset_vec *fastconv_add_passes(struct fftset *fc, struct fft_grap
 		pass->dif            = passes->pass->dif;
 		pass->dit            = passes->pass->dit;
 		pass->dif_stockham   = passes->pass->stock;
+		pass->mulconj        = passes->pass->mulconj;
 		pass->next_compat    = fastconv_find_pass(fc, pass->lfft_div_radix);
 		if (pass->next_compat == NULL)
 			pass->next_compat = fastconv_add_passes(fc, passes + 1);
@@ -1114,3 +1144,101 @@ struct fftset_vec *fastconv_get_inner_pass(struct fftset *fc, unsigned length)
 
 	return fastconv_add_passes(fc, passes);
 }
+
+#define FASTCONV_MAX_PASSES (24)
+
+struct fftset_vec_stack {
+	const struct fftset_vec *pass;
+	unsigned                 nb_vec_fft;
+};
+
+static
+void
+fftset_vec_dif_passes
+	(const struct fftset_vec  *vec_pass
+	,unsigned                  nb_vec_fft
+	,float                    *work_buf
+	,const float              *kernel_buf
+	)
+{
+	struct fftset_vec_stack pass_stack[FASTCONV_MAX_PASSES];
+	unsigned si = 0;
+
+	assert(nb_vec_fft > 0);
+	assert(work_buf != NULL);
+	assert(vec_pass != NULL);
+
+	do {
+		vec_pass->dif(work_buf, nb_vec_fft, vec_pass->lfft_div_radix, vec_pass->twiddle);
+		if (kernel_buf != NULL) {
+			pass_stack[si].pass       = vec_pass;
+			pass_stack[si].nb_vec_fft = nb_vec_fft;
+		}
+		nb_vec_fft *= vec_pass->radix;
+		vec_pass    = vec_pass->next_compat;
+		si++;
+	} while (vec_pass != NULL);
+
+	if (kernel_buf != NULL) {
+		const struct fftset_vec *vec_pass = pass_stack[--si].pass;
+		vec_pass->mulconj(work_buf, kernel_buf, nb_vec_fft);
+		vec_pass->dit(work_buf, pass_stack[si].nb_vec_fft, vec_pass->lfft_div_radix, vec_pass->twiddle);
+		while (si--) {
+			const struct fftset_vec *vec_pass = pass_stack[si].pass;
+			vec_pass->dit(work_buf, pass_stack[si].nb_vec_fft, vec_pass->lfft_div_radix, vec_pass->twiddle);
+		}
+	}
+}
+
+void
+fftset_vec_kern
+	(const struct fftset_vec  *vec_pass
+	,unsigned                  nb_vec_fft
+	,float                    *work_buf
+	)
+{
+	(void)fftset_vec_dif_passes(vec_pass, nb_vec_fft, work_buf, NULL);
+}
+
+/* The output will be conjugated! */
+void
+fftset_vec_conv
+	(const struct fftset_vec *first_pass
+	,unsigned                 nb_vec_fft
+	,float                   *work_buf
+	,const float             *kernel_buf
+	)
+{
+	assert(kernel_buf != NULL);
+	fftset_vec_dif_passes(first_pass, nb_vec_fft, work_buf, kernel_buf);
+}
+
+float *
+fftset_vec_stockham
+	(const struct fftset_vec  *vec_pass
+	,unsigned                  nb_vec_fft
+	,float                    *input_buf
+	,float                    *temp_buf
+	)
+{
+	assert(vec_pass != NULL);
+	assert(input_buf != NULL);
+	assert(temp_buf != NULL);
+	assert(nb_vec_fft > 0);
+	assert(input_buf != temp_buf);
+
+	do {
+		float *tmp;
+
+		vec_pass->dif_stockham(temp_buf, input_buf, vec_pass->twiddle, vec_pass->lfft_div_radix, nb_vec_fft);
+
+		nb_vec_fft *= vec_pass->radix;
+		tmp         = input_buf;
+		input_buf   = temp_buf;
+		temp_buf    = tmp;
+		vec_pass    = vec_pass->next_compat;
+	} while (vec_pass != NULL);
+
+	return input_buf;
+}
+
