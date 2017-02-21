@@ -965,6 +965,10 @@ modfreqoffsetreal_forward_v1f
 		output_buf[4*i+2] = re1;
 		output_buf[4*i+3] = -im1;
 	}
+	if (lfft & 1) {
+		output_buf[4*i+0] = work_buf[2*i+0];
+		output_buf[4*i+1] = work_buf[2*i+1];
+	}
 }
 
 static
@@ -988,6 +992,10 @@ modfreqoffsetreal_inverse_v1f
 		work_buf[2*lfft-2-2*i] = re1;
 		work_buf[2*lfft-1-2*i] = im1;
 	}
+	if (lfft & 1) {
+		work_buf[2*i+0] = output_buf[4*i+0];
+		work_buf[2*i+1] = -output_buf[4*i+1];
+	}
 	input_buf = fftset_vec_stockham(first_pass->next_compat, 1, work_buf, output_buf);
 	if (input_buf == output_buf)
 		memcpy(work_buf, output_buf, sizeof(float) * lfft * 2);
@@ -1005,7 +1013,7 @@ static int modfreqoffsetreal_init(struct fftset_fft *fft, struct fftset_vec **ve
 {
 #if V4F_EXISTS
 #if V8F_EXISTS
-	if (complex_len % 32 == 0) {
+	if (complex_len >= 32 && complex_len % 32 == 0) {
 		static const float off = (float)(-M_PI * 0.125);
 		unsigned i;
 		float *twid;
@@ -1062,7 +1070,7 @@ static int modfreqoffsetreal_init(struct fftset_fft *fft, struct fftset_vec **ve
 	}
 	else
 #endif
-	if (complex_len % 16 == 0) {
+	if (complex_len >= 16 && complex_len % 16 == 0) {
 		static const float off = (float)(-M_PI * 0.125);
 		unsigned i;
 		float *twid;

@@ -69,7 +69,7 @@ static const unsigned primes[] =
 
 int prime_impulse_test(struct fftset *fftset, unsigned length, float *buf1, float *buf2, float *buf3)
 {
-	const struct fftset_fft *fft = fftset_create_fft(fftset, FFTSET_MODULATION_FREQ_OFFSET_REAL, length / 2);
+	const struct fftset_fft *fft;
 	unsigned pidx;
 	unsigned i, j;
 	float acc;
@@ -77,6 +77,9 @@ int prime_impulse_test(struct fftset *fftset, unsigned length, float *buf1, floa
 	float avg_im;
 	float worst;
 
+	length *= 2;
+
+	fft = fftset_create_fft(fftset, FFTSET_MODULATION_FREQ_OFFSET_REAL, length / 2);
 	if (fft == NULL) {
 		printf("could not create FFTSET_MODULATION_FREQ_OFFSET_REAL fft\n");
 		return 1;
@@ -130,7 +133,7 @@ int prime_impulse_test(struct fftset *fftset, unsigned length, float *buf1, floa
 	avg_re = avg_re / (length / 2);
 	avg_im = avg_im / (length / 2);
 	if (acc > 0.000004) {
-		printf("l=%u) the impulse test failed with an RMS error of %f (avg=%f,%f;worst=%u,%f)\n", length, acc, avg_re, avg_im, pidx, sqrtf(worst));
+		printf("l=%u) FFTSET_MODULATION_FREQ_OFFSET_REAL impulse test failed with an RMS error of %f (avg=%f,%f;worst=%u,%f)\n", length, acc, avg_re, avg_im, pidx, sqrtf(worst));
 		return 1;
 	}
 
@@ -145,7 +148,7 @@ int prime_impulse_test(struct fftset *fftset, unsigned length, float *buf1, floa
 	acc    = sqrtf(acc / (length / 2));
 	avg_re = avg_re / (length / 2);
 	if (acc > 0.000001) {
-		printf("l=%u) the inverse test failed with an RMS error of %f (avg=%f)\n", length, acc, avg_re);
+		printf("l=%u) FFTSET_MODULATION_FREQ_OFFSET_REAL inverse test failed with an RMS error of %f (avg=%f)\n", length, acc, avg_re);
 		return 1;
 	}
 
@@ -154,12 +157,15 @@ int prime_impulse_test(struct fftset *fftset, unsigned length, float *buf1, floa
 
 int convolution_test(struct fftset *fftset, unsigned length, float *buf1, float *buf2, float *buf3)
 {
-	const struct fftset_fft *fft = fftset_create_fft(fftset, FFTSET_MODULATION_FREQ_OFFSET_REAL, length / 2);
+	const struct fftset_fft *fft;
 	unsigned pidx;
 	unsigned i, j;
 	float acc;
 	float avg_re;
 
+	length *= 2;
+
+	fft = fftset_create_fft(fftset, FFTSET_MODULATION_FREQ_OFFSET_REAL, length / 2);
 	if (fft == NULL) {
 		printf("could not create FFTSET_MODULATION_FREQ_OFFSET_REAL fft\n");
 		return 1;
@@ -307,34 +313,52 @@ int prime_impulse_test_complex(struct fftset *fftset, unsigned length, float *bu
 	return 0;
 }
 
-
-#define FREQ_OFFSET_REAL_LEN (VLF_WIDTH * VLF_WIDTH * 4)
-
 int main(int argc, char *argv[])
 {
 	struct fftset              fftset;
 	struct cop_salloc_iface    mem;
 	struct cop_alloc_grp_temps mem_impl;
 	int errors = 0;
-
+	unsigned i;
 	float *tmp1;
 	float *tmp2;
 	float *tmp3;
+
+	static const unsigned TEST_LENGTHS[] =
+	{ /* Inner passes only */
+	  2, 3, 4, 5, 6, 8
+	  /* Outer r3 pass. */
+	, 3*3, 5*3
+	  /* 2 Outer r3 passes (mainly to test graph builder). */
+	, 3*3*3, 5*3*3
+	  /* Outer r4 passes and tests for vectorised passes. */
+	, 3*4,     4*4,     5*4
+	, 3*4*2,   4*4*2,   5*4*2
+	, 3*4*4,   4*4*4,   5*4*4
+	, 3*4*4*2, 4*4*4*2, 5*4*4*2
+	  /* Vectorised r3 outer passes. */
+	, 3*3*2
+	, 3*3*4
+	, 3*3*4*2
+	, 3*3*4*4
+	, 3*3*4*4*2
+	, 3*3*4*4*4
+	};
 
 	if (fftset_init(&fftset)) {
 		printf("could not create fftset object\n");
 		return 1;
 	}
 
-	if (cop_alloc_grp_temps_init(&mem_impl, &mem, sizeof(float) * 16384, 0, 16)) {
+	if (cop_alloc_grp_temps_init(&mem_impl, &mem, sizeof(float) * 16384 * 4, 0, 16)) {
 		fftset_destroy(&fftset);
 		printf("could not create memory allocator\n");
 		return 1;
 	}
 
-	tmp1 = cop_salloc(&mem, sizeof(float) * 4096, 0);
-	tmp2 = cop_salloc(&mem, sizeof(float) * 4096, 0);
-	tmp3 = cop_salloc(&mem, sizeof(float) * 4096, 0);
+	tmp1 = cop_salloc(&mem, sizeof(float) * 16384, 0);
+	tmp2 = cop_salloc(&mem, sizeof(float) * 16384, 0);
+	tmp3 = cop_salloc(&mem, sizeof(float) * 16384, 0);
 
 	if (tmp1 == NULL || tmp2 == NULL || tmp3 == NULL) {
 		cop_alloc_grp_temps_free(&mem_impl);
@@ -343,64 +367,15 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
-	/* Test passthrough support. */
-	errors += prime_impulse_test(&fftset, FREQ_OFFSET_REAL_LEN,  tmp1, tmp2, tmp3);
-	errors += convolution_test(&fftset, FREQ_OFFSET_REAL_LEN,  tmp1, tmp2, tmp3);
+	/* Complex modulator tests. */
+	for (i = 0; i < sizeof(TEST_LENGTHS)/sizeof(TEST_LENGTHS[0]); i++)
+		errors += prime_impulse_test_complex(&fftset, TEST_LENGTHS[i], tmp1, tmp2, tmp3);
 
-	/* Test radix-2 most-inner pass. */
-	errors += prime_impulse_test(&fftset, FREQ_OFFSET_REAL_LEN * 2,  tmp1, tmp2, tmp3);
-	errors += convolution_test(&fftset, FREQ_OFFSET_REAL_LEN * 2,  tmp1, tmp2, tmp3);
-
-	/* Test radix-3 most-inner pass. */
-	errors += prime_impulse_test(&fftset, FREQ_OFFSET_REAL_LEN * 3,  tmp1, tmp2, tmp3);
-	errors += convolution_test(&fftset, FREQ_OFFSET_REAL_LEN * 3,  tmp1, tmp2, tmp3);
-
-	/* Test radix-4 most-inner pass. */
-	errors += prime_impulse_test(&fftset, FREQ_OFFSET_REAL_LEN * 4,  tmp1, tmp2, tmp3);
-	errors += convolution_test(&fftset, FREQ_OFFSET_REAL_LEN * 4,  tmp1, tmp2, tmp3);
-
-	/* Test radix-5 most-inner pass. */
-	errors += prime_impulse_test(&fftset, FREQ_OFFSET_REAL_LEN * 5,  tmp1, tmp2, tmp3);
-	errors += convolution_test(&fftset, FREQ_OFFSET_REAL_LEN * 5,  tmp1, tmp2, tmp3);
-
-	/* Test radix-6 most-inner pass. */
-	errors += prime_impulse_test(&fftset, FREQ_OFFSET_REAL_LEN * 6,  tmp1, tmp2, tmp3);
-	errors += convolution_test(&fftset, FREQ_OFFSET_REAL_LEN * 6,  tmp1, tmp2, tmp3);
-
-	/* Test radix-8 most-inner pass. */
-	errors += prime_impulse_test(&fftset, FREQ_OFFSET_REAL_LEN * 8,  tmp1, tmp2, tmp3);
-	errors += convolution_test(&fftset, FREQ_OFFSET_REAL_LEN * 8,  tmp1, tmp2, tmp3);
-
-	/* Test radix-16 most-inner pass. */
-	errors += prime_impulse_test(&fftset, FREQ_OFFSET_REAL_LEN * 16,  tmp1, tmp2, tmp3);
-	errors += convolution_test(&fftset, FREQ_OFFSET_REAL_LEN * 16,  tmp1, tmp2, tmp3);
-
-	/* Test radix-2 vector passes. */
-	errors += prime_impulse_test(&fftset, FREQ_OFFSET_REAL_LEN * 3 * 2,  tmp1, tmp2, tmp3);
-	errors += convolution_test(&fftset, FREQ_OFFSET_REAL_LEN * 3 * 2,  tmp1, tmp2, tmp3);
-
-	/* Test radix-3 vector pass. */
-	errors += prime_impulse_test(&fftset, FREQ_OFFSET_REAL_LEN * 3 * 3,  tmp1, tmp2, tmp3);
-	errors += convolution_test(&fftset, FREQ_OFFSET_REAL_LEN * 3 * 3,  tmp1, tmp2, tmp3);
-
-	/* Test radix-4 vector passes. */
-	errors += prime_impulse_test(&fftset, FREQ_OFFSET_REAL_LEN * 3 * 4,  tmp1, tmp2, tmp3);
-	errors += convolution_test(&fftset, FREQ_OFFSET_REAL_LEN * 3 * 4,  tmp1, tmp2, tmp3);
-
-	errors += prime_impulse_test_complex(&fftset, 8, tmp1, tmp2, tmp3);
-	errors += prime_impulse_test_complex(&fftset, 16, tmp1, tmp2, tmp3);
-	
-	errors += prime_impulse_test_complex(&fftset, 3*4, tmp1, tmp2, tmp3);
-	errors += prime_impulse_test_complex(&fftset, 3*5*4, tmp1, tmp2, tmp3);
-	errors += prime_impulse_test_complex(&fftset, 5*4, tmp1, tmp2, tmp3);
-
-	errors += prime_impulse_test_complex(&fftset, 3*8, tmp1, tmp2, tmp3);
-	errors += prime_impulse_test_complex(&fftset, 5*8, tmp1, tmp2, tmp3);
-	errors += prime_impulse_test_complex(&fftset, 5*3*8, tmp1, tmp2, tmp3);
-
-	errors += prime_impulse_test_complex(&fftset, 32, tmp1, tmp2, tmp3);
-	errors += prime_impulse_test_complex(&fftset, 64, tmp1, tmp2, tmp3);
-	errors += prime_impulse_test_complex(&fftset, 96, tmp1, tmp2, tmp3);
+	/* Real shifted modulator tests. */
+	for (i = 0; i < sizeof(TEST_LENGTHS)/sizeof(TEST_LENGTHS[0]); i++) {
+		errors += prime_impulse_test(&fftset, TEST_LENGTHS[i], tmp1, tmp2, tmp3);
+		errors += convolution_test(&fftset, TEST_LENGTHS[i], tmp1, tmp2, tmp3);
+	}
 
 	if (errors) {
 		printf("%u tests failed\n", errors);
