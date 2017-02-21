@@ -390,11 +390,9 @@ int main(int argc, char *argv[])
 	errors += prime_impulse_test_complex(&fftset, 8, tmp1, tmp2, tmp3);
 	errors += prime_impulse_test_complex(&fftset, 16, tmp1, tmp2, tmp3);
 	
-	/* TODO: figure out why these tests fail. I've forgotten/not-documented-
-	 * something here. */
-	/* errors += prime_impulse_test_complex(&fftset, 3*4, tmp1, tmp2, tmp3);
+	errors += prime_impulse_test_complex(&fftset, 3*4, tmp1, tmp2, tmp3);
 	errors += prime_impulse_test_complex(&fftset, 3*5*4, tmp1, tmp2, tmp3);
-	errors += prime_impulse_test_complex(&fftset, 5*4, tmp1, tmp2, tmp3); */
+	errors += prime_impulse_test_complex(&fftset, 5*4, tmp1, tmp2, tmp3);
 
 	errors += prime_impulse_test_complex(&fftset, 3*8, tmp1, tmp2, tmp3);
 	errors += prime_impulse_test_complex(&fftset, 5*8, tmp1, tmp2, tmp3);

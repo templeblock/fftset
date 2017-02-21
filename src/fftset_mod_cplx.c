@@ -199,11 +199,10 @@ modcplx_forward_v4f
 		memcpy(work_buf, output_buf, sizeof(float) * lfft * 2);
 	}
 
-	for (i = 0; i < lfft / 8; i++) {
-		v4f a, b, c, d;
-		V4F_LD2(a, b, work_buf + 16*i + 0);
-		V4F_LD2(c, d, work_buf + 16*i + 8);
-		V4F_ST2X2INT(output_buf + 16*i + 0, output_buf + 16*i + 8, a, b, c, d);
+	for (i = 0; i < lfft / 4; i++) {
+		v4f a, b;
+		V4F_LD2(a, b, work_buf + 8*i + 0);
+		V4F_ST2INT(output_buf + 8*i, a, b);
 	}
 }
 
@@ -219,13 +218,11 @@ modcplx_inverse_v4f
 	const unsigned lfft = first_pass->lfft;
 	unsigned i;
 
-	for (i = 0; i < lfft / 8; i++) {
-		v4f a, b, c, d;
-		V4F_LD2X2DINT(a, b, c, d, input_buf + i*16 + 0, input_buf + i*16 + 8);
+	for (i = 0; i < lfft / 4; i++) {
+		v4f a, b;
+		V4F_LD2DINT(a, b, input_buf + i*8);
 		b = v4f_neg(b);
-		d = v4f_neg(d);
-		V4F_ST2(work_buf + 16*i + 0, a, b);
-		V4F_ST2(work_buf + 16*i + 8, c, d);
+		V4F_ST2(work_buf + 8*i, a, b);
 	}
 
 	input_buf = fftset_vec_stockham(first_pass->next_compat, 1, work_buf, output_buf);
