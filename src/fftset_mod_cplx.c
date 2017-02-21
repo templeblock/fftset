@@ -194,15 +194,18 @@ modcplx_forward_v4f
 
 	input_buf = fftset_vec_stockham(first_pass->next_compat, 1, work_buf, output_buf);
 
-	if (input_buf != work_buf) {
-		assert(input_buf == output_buf);
-		memcpy(work_buf, output_buf, sizeof(float) * lfft * 2);
-	}
-
-	for (i = 0; i < lfft / 4; i++) {
-		v4f a, b;
-		V4F_LD2(a, b, work_buf + 8*i + 0);
-		V4F_ST2INT(output_buf + 8*i, a, b);
+	if (input_buf == output_buf) {
+		for (i = 0; i < lfft / 4; i++) {
+			v4f a, b;
+			V4F_LD2(a, b, output_buf + 8*i + 0);
+			V4F_ST2INT(output_buf + 8*i, a, b);
+		}
+	} else {
+		for (i = 0; i < lfft / 4; i++) {
+			v4f a, b;
+			V4F_LD2(a, b, work_buf + 8*i + 0);
+			V4F_ST2INT(output_buf + 8*i, a, b);
+		}
 	}
 }
 
