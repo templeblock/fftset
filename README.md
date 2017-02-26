@@ -43,4 +43,7 @@ Modulators define the most outer passes which are responsible for descending int
 
 Stockham DFT passes are used for the forward and inverse transforms while standard DIF and DIT transforms are used for convolution execution. This permits the vast majority of the convolution operations to be performed in place using sequential memory access patterns.
 
+My initial experiments when I started putting this together showed that Stockham passes were about 2/3 the cost of performing DIF style passes with explicit re-ordering steps later on. This is expected as the data is not touched as frequently, but it would be interesting to write a single reorder pass that could re-order all the bins properly in one step (i.e. have one step that has terrible memory access patterns). If this is faster than Stockham (which has worse and worse access patterns throughout the passes), I could remove about a third of the code that has been implemented. This is a TODO.
+
+Also on the TODOs are that only one of the modulators has been heavily optimized (the FREQOFFSETREAL modulator) and only for systems with vector widths of 4 (and somewhat 8). The scalar fallback still uses sine and cosine math calls in the outer passes. The COMPLEX modulator has not had any optimization treatment at all - and probably should.
 
