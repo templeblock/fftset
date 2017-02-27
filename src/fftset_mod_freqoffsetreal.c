@@ -915,21 +915,21 @@ modfreqoffsetreal_conv_v1f
 	unsigned i;
 	unsigned lfft = first_pass->lfft;
 	for (i = 0; i < lfft; i++) {
-		float re  =  input_buf[i];
-		float im  = -input_buf[lfft+i];
-		float twr = cosf(-2.0f * (float)M_PI * i / (lfft * 4.0f));
-		float twi = sinf(-2.0f * (float)M_PI * i / (lfft * 4.0f));
-		work_buf[2*i+0] = re * twr - im * twi;
-		work_buf[2*i+1] = re * twi + im * twr;
+		float re        = input_buf[i];
+		float im        = input_buf[lfft+i];
+		float twr       = cosf(-2.0f * (float)M_PI * i / (lfft * 4.0f));
+		float twi       = sinf(-2.0f * (float)M_PI * i / (lfft * 4.0f));
+		work_buf[2*i+0] = re * twr + im * twi;
+		work_buf[2*i+1] = re * twi - im * twr;
 	}
 	fftset_vec_conv(first_pass->next_compat, 1, work_buf, kernel_buf);
 	for (i = 0; i < lfft; i++) {
-		float re  =  work_buf[2*i+0];
-		float im  = -work_buf[2*i+1];
-		float twr = cosf(2.0f * (float)M_PI * i / (lfft * 4.0f));
-		float twi = sinf(2.0f * (float)M_PI * i / (lfft * 4.0f));
-		output_buf[i]        =   re * twr - im * twi;
-		output_buf[lfft+i] = -(re * twi + im * twr);
+		float re           = work_buf[2*i+0];
+		float im           = work_buf[2*i+1];
+		float twr          = cosf(-2.0f * (float)M_PI * i / (lfft * 4.0f));
+		float twi          = sinf(-2.0f * (float)M_PI * i / (lfft * 4.0f));
+		output_buf[i]      = re * twr - im * twi;
+		output_buf[lfft+i] = re * twi + im * twr;
 	}
 }
 
@@ -945,21 +945,21 @@ modfreqoffsetreal_forward_v1f
 	unsigned i;
 	unsigned lfft = first_pass->lfft;
 	for (i = 0; i < lfft; i++) {
-		float re  =  input_buf[i];
-		float im  = -input_buf[lfft+i];
-		float twr = cosf(-2.0f * (float)M_PI * i / (lfft * 4.0f));
-		float twi = sinf(-2.0f * (float)M_PI * i / (lfft * 4.0f));
-		work_buf[2*i+0] = re * twr - im * twi;
-		work_buf[2*i+1] = re * twi + im * twr;
+		float re        = input_buf[i];
+		float im        = input_buf[lfft+i];
+		float twr       = cosf(-2.0f * (float)M_PI * i / (lfft * 4.0f));
+		float twi       = sinf(-2.0f * (float)M_PI * i / (lfft * 4.0f));
+		work_buf[2*i+0] = re * twr + im * twi;
+		work_buf[2*i+1] = re * twi - im * twr;
 	}
 	input_buf = fftset_vec_stockham(first_pass->next_compat, 1, work_buf, output_buf);
 	if (input_buf == output_buf)
 		memcpy(work_buf, output_buf, sizeof(float) * lfft * 2);
 	for (i = 0; i < lfft / 2; i++) {
-		float re0 = work_buf[2*i+0];
-		float im0 = work_buf[2*i+1];
-		float re1 = work_buf[2*lfft-2-2*i];
-		float im1 = work_buf[2*lfft-1-2*i];
+		float re0         = work_buf[2*i+0];
+		float im0         = work_buf[2*i+1];
+		float re1         = work_buf[2*lfft-2-2*i];
+		float im1         = work_buf[2*lfft-1-2*i];
 		output_buf[4*i+0] = re0;
 		output_buf[4*i+1] = im0;
 		output_buf[4*i+2] = re1;
@@ -1000,12 +1000,12 @@ modfreqoffsetreal_inverse_v1f
 	if (input_buf == output_buf)
 		memcpy(work_buf, output_buf, sizeof(float) * lfft * 2);
 	for (i = 0; i < lfft; i++) {
-		float re  =  work_buf[2*i+0];
-		float im  = -work_buf[2*i+1];
-		float twr = cosf(2.0f * (float)M_PI * i / (lfft * 4.0f));
-		float twi = sinf(2.0f * (float)M_PI * i / (lfft * 4.0f));
-		output_buf[i]      =   re * twr - im * twi;
-		output_buf[lfft+i] = -(re * twi + im * twr);
+		float re           = work_buf[2*i+0];
+		float im           = work_buf[2*i+1];
+		float twr          = cosf(-2.0f * (float)M_PI * i / (lfft * 4.0f));
+		float twi          = sinf(-2.0f * (float)M_PI * i / (lfft * 4.0f));
+		output_buf[i]      = re * twr - im * twi;
+		output_buf[lfft+i] = re * twi + im * twr;
 	}
 }
 
